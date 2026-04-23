@@ -58,7 +58,8 @@ export function initInput(canvas, camera, onSelect, onAction) {
 
     setSelectedHex(key);
     onSelect(key);
-    if (state.hexes[key].owned) onAction?.(q, r);
+    const h = state.hexes[key];
+    if (h.owned || h.purchasable) onAction?.(q, r);
   });
 
   // ── Hover ────────────────────────────────────────────────────────────────
@@ -149,7 +150,8 @@ export function initInput(canvas, camera, onSelect, onAction) {
         } else {
           setSelectedHex(key);
           onSelect(key);
-          if (state.hexes[key].owned) onAction?.(q, r);
+          const h = state.hexes[key];
+          if (h.owned || h.purchasable) onAction?.(q, r);
         }
       }
       dragActive = false;

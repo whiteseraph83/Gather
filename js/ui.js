@@ -28,12 +28,13 @@ const RESOURCE_DESC = {
   lingotti: 'Lingotti · Metallo raffinato. Si produce dal ferro, o al Fabbro con ricette speciali.',
 };
 
-let _cb          = {};
-let _resHexKey   = null;
-let _craftHexKey = null;
+let _cb           = {};
+let _resHexKey    = null;
+let _craftHexKey  = null;
 let _craftHexType = null;
-let _buildHexQ   = 0;
-let _buildHexR   = 0;
+let _buildHexQ    = 0;
+let _buildHexR    = 0;
+let _hexModalKey  = null;
 
 // ── Research modal ────────────────────────────────────────────────────────────
 
@@ -195,7 +196,6 @@ function _populateBuildModal() {
     });
     card.appendChild(btn);
 
-    // Also allow clicking the whole card if affordable
     if (affordable) {
       card.addEventListener('click', e => {
         if (e.target !== btn) btn.click();
@@ -203,6 +203,47 @@ function _populateBuildModal() {
     }
 
     container.appendChild(card);
+  }
+}
+
+// ── Hex action modal ──────────────────────────────────────────────────────────
+
+const HEX_MODAL_LABELS = {
+  starter:      '🏘 Villaggio',
+  ricerca:      '🔬 Ricerca',
+  cucina:       '🍳 Cucina',
+  fabbro:       '🔨 Fabbro',
+  falegnameria: '🪚 Falegnameria',
+  caccia:       '🎯 Caccia',
+  casa:         '🏠 Casa',
+  ospedale:     '🏥 Ospedale',
+};
+
+export function openHexModal(key) {
+  _hexModalKey = key;
+  _populateHexModal(getState());
+  document.getElementById('hex-modal').classList.remove('hidden');
+}
+
+export function closeHexModal() {
+  document.getElementById('hex-modal').classList.add('hidden');
+}
+
+function _populateHexModal(state) {
+  if (!_hexModalKey) return;
+  const container = document.getElementById('hex-modal-content');
+  container.innerHTML = '';
+  const hex = state.hexes[_hexModalKey];
+  if (!hex) return;
+
+  const titleEl = document.getElementById('hex-modal-title');
+
+  if (hex.owned) {
+    titleEl.textContent = HEX_MODAL_LABELS[hex.type] ?? (HEX_LABEL[hex.type] ?? hex.type);
+    _renderOwnedHex(container, hex, _hexModalKey, state);
+  } else if (hex.purchasable) {
+    titleEl.textContent = '🏗 Territorio inesplorato';
+    _renderBuildMenu(container, hex, _hexModalKey, state);
   }
 }
 
@@ -233,6 +274,14 @@ export function buildUI(callbacks) {
   document.getElementById('craft-modal')
     .addEventListener('click', e => {
       if (e.target === e.currentTarget) closeCraftModal();
+    });
+
+  // Hex action modal
+  document.getElementById('hex-modal-close-btn')
+    .addEventListener('click', closeHexModal);
+  document.getElementById('hex-modal')
+    .addEventListener('click', e => {
+      if (e.target === e.currentTarget) closeHexModal();
     });
 
   const list = document.getElementById('resource-list');
@@ -268,9 +317,10 @@ export function updateUI() {
     el.className   = 'res-amount' + (val > 0 ? ' nonzero' : '');
   }
 
-  _renderHexInfo(state, idle);
-
-  // Live-refresh open modals so affordability stays current
+  // Live-refresh open modals
+  if (!document.getElementById('hex-modal').classList.contains('hidden')) {
+    _populateHexModal(state);
+  }
   if (!document.getElementById('research-modal').classList.contains('hidden')) {
     _populateResearchModal(state);
   }
@@ -281,12 +331,6 @@ export function updateUI() {
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-function _costStr(cost) {
-  return Object.entries(cost)
-    .map(([r, n]) => `${n}${RESOURCE_ICON[r]}`)
-    .join(' ');
-}
-
 function _makeBtn(text, cls, onClick, disabled = false) {
   const b = document.createElement('button');
   b.className   = cls;
@@ -296,59 +340,53 @@ function _makeBtn(text, cls, onClick, disabled = false) {
   return b;
 }
 
-// ── Hex info panel ────────────────────────────────────────────────────────────
-
-function _renderHexInfo(state, idleCount) {
-  const panel  = document.getElementById('hex-info');
-  const selKey = getSelectedHex();
-
-  if (!selKey || !state.hexes[selKey]) {
-    panel.innerHTML = '<div class="hint">Clicca un esagono per interagire</div>';
-    return;
-  }
-
-  const hex = state.hexes[selKey];
-
-  if (hex.owned) {
-    _renderOwnedHex(panel, hex, selKey, state);
-  } else if (hex.purchasable) {
-    _renderBuildMenu(panel, hex, selKey, state);
-  }
-}
-
 // ── Owned hex panels ──────────────────────────────────────────────────────────
 
-function _renderOwnedHex(panel, hex, selKey, state) {
+function _renderOwnedHex(container, hex, selKey, state) {
   switch (hex.type) {
-    case 'starter':     return _panelVillaggio(panel, state);
-    case 'ricerca':     return _panelRicerca(panel, hex, selKey, state);
+    case 'starter':     return _panelVillaggio(container, state);
+    case 'ricerca':     return _panelRicerca(container, hex, selKey, state);
     case 'cucina':
     case 'fabbro':
     case 'falegnameria':
-    case 'caccia':      return _panelCraftStation(panel, hex, selKey, state);
-    case 'casa':        return _panelCasa(panel);
-    case 'ospedale':    return _panelOspedale(panel, hex, selKey, state);
-    default:            return _panelGather(panel, hex);
+    case 'caccia':      return _panelCraftStation(container, hex, selKey, state);
+    case 'casa':        return _panelCasa(container);
+    case 'ospedale':    return _panelOspedale(container, hex, selKey, state);
+    default:            return _panelGather(container, hex, selKey);
   }
 }
 
-function _panelGather(panel, hex) {
+function _panelGather(container, hex, selKey) {
+  const { q, r } = keyToHex(selKey);
   const yieldMap = HEX_YIELD[hex.type] ?? {};
-  const yieldStr = Object.entries(yieldMap).map(([r,n]) => `${n} ${RESOURCE_LABEL[r]}`).join(', ');
+  const yieldStr = Object.entries(yieldMap).map(([res, n]) => `${n} ${RESOURCE_LABEL[res]}`).join(', ');
 
-  panel.innerHTML =
-    `<div class="hex-info-title">${HEX_LABEL[hex.type] ?? hex.type}</div>` +
-    `<div class="hex-info-type">Produzione: ${yieldStr}</div>` +
-    `<div class="hint">Clicca l'hex per inviare un lavoratore</div>`;
+  const info = document.createElement('div');
+  info.className = 'hex-info-type';
+  info.textContent = `Produzione: ${yieldStr}`;
+  container.appendChild(info);
+
+  const workers = getWorkers();
+  const busy    = workers.some(w => w.targetHexKey === selKey && w.status !== 'idle');
+
+  if (busy) {
+    const hint = document.createElement('div');
+    hint.className = 'hint';
+    hint.textContent = 'Lavoratore già in viaggio o al lavoro.';
+    container.appendChild(hint);
+  } else {
+    container.appendChild(_makeBtn('👷 Invia lavoratore', 'action-btn', () => {
+      _cb.onHarvest?.(q, r);
+      closeHexModal();
+    }));
+  }
 }
 
-function _panelVillaggio(panel, state) {
+function _panelVillaggio(container, state) {
   const workers  = getWorkers();
   const unlocked = state.research?.unlocked ?? [];
   const canEvolve = unlocked.includes('evoluzione');
   const canAuto   = unlocked.includes('automazione');
-
-  panel.innerHTML = `<div class="hex-info-title">🏘 Villaggio</div>`;
 
   for (const w of workers) {
     const div = document.createElement('div');
@@ -390,83 +428,90 @@ function _panelVillaggio(panel, state) {
       const enough = canAfford({ lingotti:3 });
       const evBtn  = _makeBtn(
         `Evolvi (3🥇)`, 'worker-evolve-btn',
-        () => {
-          if (evolveWorker(w.id)) updateUI();
-        }, !enough
+        () => { if (evolveWorker(w.id)) updateUI(); },
+        !enough
       );
       div.appendChild(evBtn);
     }
 
-    panel.appendChild(div);
+    container.appendChild(div);
   }
 }
 
-function _panelRicerca(panel, hex, selKey, state) {
+function _panelRicerca(container, hex, selKey, state) {
+  const { q, r } = keyToHex(selKey);
   const workers   = getWorkers();
   const ra        = (state.research?.active ?? []).find(a => a.hexKey === selKey);
   const resWorker = workers.find(w => w.status === 'researching' && w.targetHexKey === selKey);
+  const goingWorker = workers.find(w => w.targetHexKey === selKey && (w.status === 'going' || w.status === 'returning'));
 
-  panel.innerHTML = `<div class="hex-info-title">🔬 Ricerca</div>`;
-
-  if (!resWorker) {
-    const hint = document.createElement('div');
-    hint.className = 'hint';
-    hint.textContent = 'Clicca l\'hex per inviare un ricercatore';
-    panel.appendChild(hint);
+  if (!resWorker && !goingWorker) {
+    container.appendChild(_makeBtn('👷 Invia ricercatore', 'action-btn', () => {
+      _cb.onHarvest?.(q, r);
+      closeHexModal();
+    }));
     return;
   }
 
-  // Researcher is here
-  const recallBtn = _makeBtn('↩ Richiama lavoratore', 'action-btn secondary',
+  if (goingWorker && !resWorker) {
+    const hint = document.createElement('div');
+    hint.className = 'hint';
+    hint.textContent = goingWorker.status === 'going' ? 'Ricercatore in viaggio…' : 'Ricercatore in rientro…';
+    container.appendChild(hint);
+    return;
+  }
+
+  container.appendChild(_makeBtn('↩ Richiama lavoratore', 'action-btn secondary',
     () => { recallResearcher(resWorker.id); updateUI(); }
-  );
-  panel.appendChild(recallBtn);
+  ));
 
   const sep = document.createElement('hr');
   sep.className = 'panel-sep';
-  panel.appendChild(sep);
+  container.appendChild(sep);
 
   if (ra) {
-    // Show active research progress
     const recipe = RESEARCH_RECIPES[ra.recipeId];
     const pct    = Math.min(100, Math.round((ra.elapsed / recipe.time) * 100));
     const remSec = Math.max(0, Math.round(recipe.time - ra.elapsed));
-
-    const prog = document.createElement('div');
+    const prog   = document.createElement('div');
     prog.className = 'research-active';
     prog.innerHTML =
       `<div class="research-name">🔬 ${recipe.label}</div>` +
       `<div class="research-bar-wrap"><div class="research-bar" style="width:${pct}%"></div></div>` +
       `<div class="research-time">${remSec}s rimanenti</div>`;
-    panel.appendChild(prog);
+    container.appendChild(prog);
   } else {
-    const openBtn = _makeBtn('🔬 Apri Albero della Ricerca', 'action-btn',
-      () => openResearchModal(selKey, state)
-    );
-    panel.appendChild(openBtn);
+    container.appendChild(_makeBtn('🔬 Apri Albero della Ricerca', 'action-btn',
+      () => { closeHexModal(); openResearchModal(selKey, state); }
+    ));
   }
 }
 
-function _panelCraftStation(panel, hex, selKey, state) {
-  const icon    = { cucina:'🍳', fabbro:'🔨', falegnameria:'🪚', caccia:'🎯' }[hex.type];
-  const label   = HEX_LABEL[hex.type];
-  const workers = getWorkers();
-  const worker  = workers.find(w => w.targetHexKey === selKey && w.status === 'crafting');
+function _panelCraftStation(container, hex, selKey, state) {
+  const { q, r } = keyToHex(selKey);
+  const workers  = getWorkers();
+  const worker   = workers.find(w => w.targetHexKey === selKey && w.status === 'crafting');
+  const going    = workers.find(w => w.targetHexKey === selKey && (w.status === 'going' || w.status === 'returning'));
 
-  panel.innerHTML = `<div class="hex-info-title">${icon} ${label}</div>`;
-
-  if (!worker) {
-    const hint = document.createElement('div');
-    hint.className = 'hint';
-    hint.textContent = 'Clicca l\'hex per inviare un lavoratore';
-    panel.appendChild(hint);
+  if (!worker && !going) {
+    container.appendChild(_makeBtn('👷 Invia lavoratore', 'action-btn', () => {
+      _cb.onHarvest?.(q, r);
+      closeHexModal();
+    }));
     return;
   }
 
-  const recallBtn = _makeBtn('↩ Richiama lavoratore', 'action-btn secondary',
+  if (going && !worker) {
+    const hint = document.createElement('div');
+    hint.className = 'hint';
+    hint.textContent = going.status === 'going' ? 'Lavoratore in viaggio…' : 'Lavoratore in rientro…';
+    container.appendChild(hint);
+    return;
+  }
+
+  container.appendChild(_makeBtn('↩ Richiama lavoratore', 'action-btn secondary',
     () => { recallCrafter(worker.id); updateUI(); }
-  );
-  panel.appendChild(recallBtn);
+  ));
 
   const ca = hex.craftActive;
   if (ca) {
@@ -480,39 +525,38 @@ function _panelCraftStation(panel, hex, selKey, state) {
         `<div class="research-name">⚙ ${recipe.label}</div>` +
         `<div class="research-bar-wrap"><div class="research-bar" style="width:${pct}%"></div></div>` +
         `<div class="research-time">${remSec}s rimanenti</div>`;
-      panel.appendChild(prog);
+      container.appendChild(prog);
     }
   } else {
-    const openBtn = _makeBtn(`${icon} Scegli ricetta`, 'action-btn',
-      () => openCraftModal(selKey, hex.type, state)
-    );
-    panel.appendChild(openBtn);
+    const icon = { cucina:'🍳', fabbro:'🔨', falegnameria:'🪚', caccia:'🎯' }[hex.type];
+    container.appendChild(_makeBtn(`${icon} Scegli ricetta`, 'action-btn',
+      () => { closeHexModal(); openCraftModal(selKey, hex.type, state); }
+    ));
   }
 }
 
-
-function _panelCasa(panel) {
-  panel.innerHTML =
-    `<div class="hex-info-title">🏠 Casa</div>` +
-    `<div class="hex-info-type">Ha aggiunto 1 lavoratore al villaggio.</div>`;
+function _panelCasa(container) {
+  const info = document.createElement('div');
+  info.className = 'hex-info-type';
+  info.textContent = 'Ha aggiunto 1 lavoratore al villaggio.';
+  container.appendChild(info);
 }
 
-function _panelOspedale(panel, hex, selKey, state) {
+function _panelOspedale(container, hex, selKey, state) {
+  const { q, r } = keyToHex(selKey);
   const workers  = getWorkers();
   const healing  = workers.filter(w => w.status === 'healing' && w.targetHexKey === selKey);
   const sickIdle = workers.filter(w => w.sick && w.status === 'idle');
 
-  panel.innerHTML = `<div class="hex-info-title">🏥 Ospedale</div>`;
-
   if (healing.length > 0) {
     for (const w of healing) {
-      const pct    = Math.min(100, Math.round(((w.healElapsed ?? 0) / 30) * 100));
-      const div    = document.createElement('div');
+      const pct = Math.min(100, Math.round(((w.healElapsed ?? 0) / 30) * 100));
+      const div = document.createElement('div');
       div.className = 'research-active';
       div.innerHTML =
         `<div class="research-name">🤒 Lavoratore #${w.id + 1} in cura</div>` +
         `<div class="research-bar-wrap"><div class="research-bar" style="width:${pct}%"></div></div>`;
-      panel.appendChild(div);
+      container.appendChild(div);
     }
   }
 
@@ -520,27 +564,29 @@ function _panelOspedale(panel, hex, selKey, state) {
     const info = document.createElement('div');
     info.className = 'hex-info-type';
     info.textContent = '✅ Nessun malato da curare.';
-    panel.appendChild(info);
+    container.appendChild(info);
     return;
   }
 
   if (sickIdle.length > 0) {
-    const hint = document.createElement('div');
-    hint.className = 'hint';
-    hint.textContent = `🤒 ${sickIdle.length} malato${sickIdle.length > 1 ? 'i' : ''} in attesa — clicca l'hex per inviare in cura`;
-    panel.appendChild(hint);
+    container.appendChild(_makeBtn(
+      `👷 Invia malato in cura (${sickIdle.length})`, 'action-btn',
+      () => { _cb.onHealWorker?.(q, r); closeHexModal(); }
+    ));
   }
 }
 
-// ── Build menu (unexplored hex) ───────────────────────────────────────────────
+// ── Build menu (purchasable hex) ──────────────────────────────────────────────
 
-function _renderBuildMenu(panel, hex, selKey, state) {
+function _renderBuildMenu(container, hex, selKey, state) {
   const { q, r } = keyToHex(selKey);
 
-  panel.innerHTML = `<div class="hex-info-title">🏗 Territorio inesplorato</div>`;
+  const info = document.createElement('div');
+  info.className = 'hex-info-type';
+  info.textContent = 'Territorio disponibile per la costruzione.';
+  container.appendChild(info);
 
-  const btn = _makeBtn('🏗 Scegli cosa costruire', 'buy-btn',
-    () => openBuildModal(q, r)
-  );
-  panel.appendChild(btn);
+  container.appendChild(_makeBtn('🏗 Scegli cosa costruire', 'buy-btn',
+    () => { closeHexModal(); openBuildModal(q, r); }
+  ));
 }

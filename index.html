@@ -34,11 +34,6 @@
         <div id="resource-list"></div>
       </section>
 
-      <section class="panel" id="hex-info-panel">
-        <h2>Esagono</h2>
-        <div id="hex-info"><div class="hint">Clicca un esagono</div></div>
-      </section>
-
       <section class="panel">
         <button id="reset-btn" class="danger-btn">↺ Nuova partita</button>
       </section>
@@ -46,6 +41,17 @@
   </div>
 
   <div id="toast"></div>
+
+  <!-- Hex action modal -->
+  <div id="hex-modal" class="modal-overlay hidden">
+    <div class="modal-box hex-modal-box">
+      <div class="modal-header">
+        <span class="modal-title" id="hex-modal-title">Esagono</span>
+        <button id="hex-modal-close-btn" class="modal-close">✕</button>
+      </div>
+      <div id="hex-modal-content" class="modal-content hex-modal-content"></div>
+    </div>
+  </div>
 
   <!-- Build modal -->
   <div id="build-modal" class="modal-overlay hidden">

@@ -382,7 +382,7 @@ button.buy-btn:disabled {
 #toast {
   position: fixed;
   bottom: 24px;
-  left: calc(50% - var(--sidebar-w)/2);
+  left: 50%;
   transform: translateX(-50%) translateY(50px);
   background: linear-gradient(135deg, #161c30 0%, #101520 100%);
   border: 1px solid var(--gold-dim);
@@ -728,6 +728,18 @@ button.buy-btn.small {
   scrollbar-color: #252a50 transparent;
   display: grid;
   grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+/* ── Hex action modal ────────────────────────────────────────────────────────── */
+
+.hex-modal-box {
+  width: 440px;
+}
+
+.hex-modal-content {
+  display: flex !important;
+  flex-direction: column;
   gap: 10px;
 }
 

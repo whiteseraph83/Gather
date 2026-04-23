@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "hex-domain",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["serve", ".", "--listen", "8744"],
+      "port": 8744
+    }
+  ]
+}

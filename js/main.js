@@ -1,4 +1,4 @@
-import { AUTOSAVE_MS, RESEARCH_RECIPES, CRAFT_RECIPES } from './config.js';
+import { AUTOSAVE_MS, RESEARCH_RECIPES, CRAFT_RECIPES, RESOURCE_ICON } from './config.js';
 import { initState, getState } from './state.js';
 import { loadGame, saveGame, resetGame } from './storage.js';
 import { refreshPurchasable } from './map.js';
@@ -6,7 +6,7 @@ import { initWorkers, updateWorkers, dispatchWorker, getWorkers } from './worker
 import { addResources, canAfford, deductResources } from './resources.js';
 import { buildHex } from './economy.js';
 import { render, invalidateBg } from './render.js';
-import { buildUI, updateUI, openCraftModal } from './ui.js';
+import { buildUI, updateUI, openHexModal } from './ui.js';
 import { initInput } from './input.js';
 import { hexToPixel } from './hex.js';
 
@@ -132,54 +132,19 @@ const HEX_LABEL_CAP = {
 // ── Hex click action ─────────────────────────────────────────────────────────
 
 function onAction(q, r) {
-  const state = getState();
   const key   = `${q},${r}`;
+  const state = getState();
   const hex   = state.hexes[key];
-  if (!hex || !hex.owned) return;
+  if (!hex) return;
+  if (!hex.owned && !hex.purchasable) return;
+  openHexModal(key);
+}
 
-  switch (hex.type) {
-    case 'starter':
-    case 'casa':
-      return;
-
-    case 'ospedale': {
-      if (!dispatchWorker(q, r)) showToast('⚠ Nessun malato da inviare');
-      else saveGame();
-      updateUI();
-      break;
-    }
-
-    case 'ricerca': {
-      const busy = getWorkers().some(w => w.targetHexKey === key && w.status !== 'idle');
-      if (busy) return;
-      if (!dispatchWorker(q, r)) showToast('⚠ Nessun lavoratore disponibile');
-      updateUI();
-      break;
-    }
-
-    case 'cucina':
-    case 'fabbro':
-    case 'falegnameria':
-    case 'caccia': {
-      const stationed = getWorkers().find(w => w.targetHexKey === key && w.status === 'crafting');
-      if (stationed) {
-        if (!hex.craftActive) openCraftModal(key, hex.type, getState());
-        return;
-      }
-      const busy = getWorkers().some(w => w.targetHexKey === key && w.status !== 'idle');
-      if (busy) return;
-      if (!dispatchWorker(q, r)) showToast('⚠ Nessun lavoratore disponibile');
-      else saveGame();
-      updateUI();
-      break;
-    }
-
-    default: {
-      if (!dispatchWorker(q, r)) showToast('⚠ Nessun lavoratore disponibile');
-      updateUI();
-      break;
-    }
-  }
+function _formatGains(payload) {
+  const parts = Object.entries(payload)
+    .filter(([, n]) => n > 0)
+    .map(([r, n]) => `${RESOURCE_ICON[r] ?? r} +${n}`);
+  return parts.length ? parts.join('   ') : '📦';
 }
 
 // ── Game loop ─────────────────────────────────────────────────────────────────
@@ -197,7 +162,7 @@ function loop(timestamp) {
       (_id, payload) => {
         addResources(payload);
         saveGame();
-        showToast(payload.mana ? '✨ Trovato Mana! 📦 Risorse raccolte!' : '📦 Risorse raccolte!');
+        showToast(_formatGains(payload));
         updateUI();
       },
       (_id, label) => {
@@ -207,7 +172,7 @@ function loop(timestamp) {
       },
       (_id, output) => {
         saveGame();
-        showToast(output.mana ? '✅ Creazione completata! ✨ +1 Mana!' : '✅ Creazione completata!');
+        showToast('✅ ' + _formatGains(output));
         updateUI();
       },
       (msg) => {
@@ -257,4 +222,9 @@ function showToast(msg) {
 
 // ── Boot ──────────────────────────────────────────────────────────────────────
 
-document.addEventListener('DOMContentLoaded', init);
+// DOM is already ready when this module is injected dynamically
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', init);
+} else {
+  init();
+}
