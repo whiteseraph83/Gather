@@ -5,7 +5,7 @@ let _state = null;
 export function createInitialState() {
   const resources = {};
   for (const r of RESOURCE_LIST) resources[r] = 0;
-  resources.mana = 1;
+  resources.mana = 2;
 
   return {
     version: SAVE_VERSION,
