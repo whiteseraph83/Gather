@@ -89,6 +89,13 @@
       };
     })();
   </script>
-  <script type="module" src="js/main.js"></script>
+  <script>
+    (function () {
+      const s = document.createElement('script');
+      s.type = 'module';
+      s.src  = 'js/main.js?v=' + Date.now();
+      document.currentScript.insertAdjacentElement('afterend', s);
+    })();
+  </script>
 </body>
 </html>
