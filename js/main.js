@@ -101,6 +101,15 @@ function init() {
 
   initInput(canvas, camera, () => updateUI(), onAction);
 
+  // Mobile sidebar toggle
+  const sidebarEl       = document.getElementById('sidebar');
+  const sidebarToggle   = document.getElementById('sidebar-toggle');
+  const sidebarBackdrop = document.getElementById('sidebar-backdrop');
+  const openSidebar  = () => { sidebarEl.classList.add('open'); sidebarBackdrop.classList.add('visible'); sidebarToggle.textContent = '✕'; };
+  const closeSidebar = () => { sidebarEl.classList.remove('open'); sidebarBackdrop.classList.remove('visible'); sidebarToggle.textContent = '☰'; };
+  sidebarToggle.addEventListener('click', () => sidebarEl.classList.contains('open') ? closeSidebar() : openSidebar());
+  sidebarBackdrop.addEventListener('click', closeSidebar);
+
   document.getElementById('reset-btn').addEventListener('click', () => {
     if (confirm('Vuoi davvero ricominciare? Tutti i progressi andranno persi.')) {
       resetGame();
