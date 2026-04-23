@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Hex Domain</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div id="game-container">
+    <canvas id="map-canvas"></canvas>
+
+    <aside id="sidebar">
+      <h1 class="game-title">Hex Domain</h1>
+
+      <section class="panel">
+        <h2>Popolazione</h2>
+        <div class="stat-row">
+          <span>Totale</span><strong id="pop-total">1</strong>
+        </div>
+        <div class="stat-row">
+          <span>Idle</span><strong id="workers-idle">1</strong>
+        </div>
+        <div class="stat-row">
+          <span>Occupati</span><strong id="workers-busy">0</strong>
+        </div>
+      </section>
+
+      <section class="panel">
+        <h2>Risorse</h2>
+        <div id="resource-list"></div>
+      </section>
+
+      <section class="panel" id="hex-info-panel">
+        <h2>Esagono</h2>
+        <div id="hex-info"><div class="hint">Clicca un esagono</div></div>
+      </section>
+
+      <section class="panel">
+        <button id="reset-btn" class="danger-btn">↺ Nuova partita</button>
+      </section>
+    </aside>
+  </div>
+
+  <div id="toast"></div>
+
+  <!-- Build modal -->
+  <div id="build-modal" class="modal-overlay hidden">
+    <div class="modal-box">
+      <div class="modal-header">
+        <span class="modal-title">🏗 Costruisci</span>
+        <button id="build-modal-close-btn" class="modal-close">✕</button>
+      </div>
+      <div id="build-modal-content" class="modal-content build-modal-grid"></div>
+    </div>
+  </div>
+
+  <!-- Craft modal -->
+  <div id="craft-modal" class="modal-overlay hidden">
+    <div class="modal-box">
+      <div class="modal-header">
+        <span class="modal-title" id="craft-modal-title">🔨 Ricette</span>
+        <button id="craft-modal-close-btn" class="modal-close">✕</button>
+      </div>
+      <div id="craft-modal-content" class="modal-content"></div>
+    </div>
+  </div>
+
+  <!-- Research modal -->
+  <div id="research-modal" class="modal-overlay hidden">
+    <div class="modal-box">
+      <div class="modal-header">
+        <span class="modal-title">🔬 Albero della Ricerca</span>
+        <button id="modal-close-btn" class="modal-close">✕</button>
+      </div>
+      <div id="research-modal-content" class="modal-content"></div>
+    </div>
+  </div>
+  <!-- Allow game loop to run in background tabs (setTimeout fires even when hidden) -->
+  <script>
+    (function() {
+      var _raf = window.requestAnimationFrame.bind(window);
+      window.requestAnimationFrame = function(cb) {
+        if (document.hidden) return setTimeout(function() { cb(performance.now()); }, 50);
+        return _raf(cb);
+      };
+    })();
+  </script>
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>
