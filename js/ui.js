@@ -2,13 +2,15 @@ import {
   RESOURCE_LIST, RESOURCE_LABEL, RESOURCE_ICON,
   HEX_LABEL, HEX_YIELD, BUILD_COST,
   RESEARCH_RECIPES, CRAFT_RECIPES,
+  PERMIT_TYPES, HEX_UPGRADES, computeHexYield, workerLabel,
 } from './config.js';
 import { getState } from './state.js';
-import { getWorkers, getIdleCount, recallResearcher, recallCrafter, evolveWorker, toggleWorkerAuto } from './workers.js';
+import { getWorkers, getIdleCount, recallWorker, evolveWorker, toggleWorkerAuto } from './workers.js';
 import { hexDistance, keyToHex, hexKey } from './hex.js';
 import { getSelectedHex } from './render.js';
 import { canAfford } from './resources.js';
-import { getAvailableBuildTypes, buildHex } from './economy.js';
+import { getAvailableBuildTypes, buildHex, getScaledBuildCost,
+         getPermitResearchCost, upgradeHex, demolishHex } from './economy.js';
 
 // ── Resource tooltips ─────────────────────────────────────────────────────────
 
@@ -20,12 +22,12 @@ const RESOURCE_DESC = {
   carne:    'Carne · Raccolta dal Pascolo o dalla Caccia. Ingrediente per il cibo.',
   sabbia:   'Sabbia · Raccolta dal Deserto. Usata per la produzione di mattoni.',
   ferro:    'Ferro · Raccolto dalla Miniera. Necessario per forgiare lingotti e strumenti.',
-  mana:     'Mana ✨ · Energia magica rarissima. Appare casualmente raccogliendo qualsiasi risorsa o creando oggetti artigianali (~4% per raccolta, ~3% per crafting). Necessario per costruire l\'Hex Ricerca e per la Lega Preziosa al Fabbro.',
-  ricerca:  'Ricerca 🔬 · Generata da un lavoratore nell\'Hex Ricerca (1 ogni 15s). Si spende per sbloccare nuove tecnologie.',
-  pane:     'Pane · Cibo lavorato. Si produce artigianalmente o nella Cucina.',
-  stufato:  'Stufato · Cibo ricco. Si produce artigianalmente o nella Cucina.',
-  mattoni:  'Mattoni · Materiale da costruzione avanzato. Si produce dalla pietra e sabbia, o nella Falegnameria.',
-  lingotti: 'Lingotti · Metallo raffinato. Si produce dal ferro, o al Fabbro con ricette speciali.',
+  mana:     'Mana ✨ · Energia magica rarissima (~0.5% per raccolta o crafting). Necessario per costruire Ricerca e per la Lega Preziosa al Fabbro.',
+  ricerca:  'Ricerca 🔬 · Generata da un lavoratore nell\'Hex Ricerca (1 ogni 5s). Si spende per sbloccare tecnologie.',
+  pane:     'Pane · Cibo lavorato. Si produce nella Cucina.',
+  stufato:  'Stufato · Cibo ricco. Si produce nella Cucina.',
+  mattoni:  'Mattoni · Materiale da costruzione avanzato. Si produce al Fabbro o in Falegnameria.',
+  lingotti: 'Lingotti · Metallo raffinato. Si produce al Fabbro.',
 };
 
 let _cb           = {};
@@ -51,22 +53,39 @@ export function closeResearchModal() {
 function _populateResearchModal(state) {
   const container = document.getElementById('research-modal-content');
   container.innerHTML = '';
-  const unlocked  = state.research?.unlocked ?? [];
-  const actives   = state.research?.active   ?? [];
+  const unlocked = state.research?.unlocked ?? [];
+  const actives  = state.research?.active   ?? [];
+  const permits  = state.research?.permits  ?? {};
 
   for (const [id, recipe] of Object.entries(RESEARCH_RECIPES)) {
-    const done      = unlocked.includes(recipe.unlocks);
+    const isPermit = PERMIT_TYPES.has(recipe.unlocks);
+
+    // For upgrade/general: standard done check
+    const done       = !isPermit && unlocked.includes(recipe.unlocks);
     const inProgress = !done && actives.some(a => RESEARCH_RECIPES[a.recipeId]?.unlocks === recipe.unlocks);
     const hexActive  = !done && actives.find(a => a.hexKey === _resHexKey);
-    const affordable = !done && !inProgress && !hexActive && canAfford(recipe.cost);
-    const costStr    = Object.entries(recipe.cost).map(([r,n]) => `${n}${RESOURCE_ICON[r]}`).join(' ');
+
+    // For permits: use scaled cost
+    const actualCost = isPermit ? getPermitResearchCost(id, state) : recipe.cost;
+    const affordable = !done && !inProgress && !hexActive && canAfford(actualCost);
+    const costStr    = Object.entries(actualCost).map(([r, n]) => `${n}${RESOURCE_ICON[r]}`).join(' ');
 
     const card = document.createElement('div');
     card.className = `research-card ${done ? 'completed' : ''}`;
 
+    // Extra info for permit types
+    let extraInfo = '';
+    if (isPermit) {
+      const built   = state.buildCount?.[recipe.unlocks] ?? 0;
+      const pending = permits[recipe.unlocks] ?? 0;
+      if (pending > 0)  extraInfo = `<div class="research-permit-badge">✋ ${pending} permesso disponibile</div>`;
+      else if (built > 0) extraInfo = `<div class="research-permit-badge dim">${built} già costruit${built>1?'e':'a'} — costo aumentato</div>`;
+    }
+
     card.innerHTML =
       `<div class="research-card-name">${recipe.label}</div>` +
       `<div class="research-card-desc">${recipe.desc}</div>` +
+      extraInfo +
       `<div class="research-card-meta">
         <span>${costStr}</span>
         <span class="meta-time">⏱ ${recipe.time}s</span>
@@ -74,10 +93,10 @@ function _populateResearchModal(state) {
 
     if (!done) {
       let btnLabel;
-      if (inProgress)     btnLabel = '🔬 In corso...';
-      else if (hexActive) btnLabel = '⚙ Hex già occupato';
+      if (inProgress)      btnLabel = '🔬 In corso...';
+      else if (hexActive)  btnLabel = '⚙ Hex già occupato';
       else if (!affordable) btnLabel = '🔒 Risorse insufficienti';
-      else                btnLabel = '▶ Avvia ricerca';
+      else                 btnLabel = '▶ Avvia ricerca';
 
       const btn = _makeBtn(btnLabel, 'research-card-btn',
         () => {
@@ -85,7 +104,7 @@ function _populateResearchModal(state) {
           closeResearchModal();
           updateUI();
         },
-        inProgress || hexActive || !canAfford(recipe.cost)
+        inProgress || !!hexActive || !canAfford(actualCost)
       );
       card.appendChild(btn);
     }
@@ -124,9 +143,9 @@ function _populateCraftModal(state) {
     const card = document.createElement('div');
     card.className = `research-card ${affordable ? '' : 'locked'}`;
 
-    const outStr  = Object.entries(recipe.output).map(([r,n]) => `${n}${RESOURCE_ICON[r]}`).join(' ');
+    const outStr  = Object.entries(recipe.output).map(([r, n]) => `${n}${RESOURCE_ICON[r]}`).join(' ');
     const costStr = hasInputs
-      ? Object.entries(recipe.inputs).map(([r,n]) => `${n}${RESOURCE_ICON[r]}`).join(' ') + ' → ' + outStr
+      ? Object.entries(recipe.inputs).map(([r, n]) => `${n}${RESOURCE_ICON[r]}`).join(' ') + ' → ' + outStr
       : '→ ' + outStr;
 
     card.innerHTML =
@@ -170,12 +189,22 @@ export function closeBuildModal() {
 function _populateBuildModal() {
   const container = document.getElementById('build-modal-content');
   container.innerHTML = '';
+  const state = getState();
   const types = getAvailableBuildTypes();
 
   for (const type of types) {
-    const cost       = BUILD_COST[type];
+    const cost       = getScaledBuildCost(type, state);
     const affordable = canAfford(cost);
-    const costStr    = Object.entries(cost).map(([r,n]) => `${n}${RESOURCE_ICON[r]}`).join(' ');
+    const costStr    = Object.entries(cost).map(([r, n]) => `${n}${RESOURCE_ICON[r]}`).join(' ');
+
+    // Show how many permits are pending for permit types
+    let permitBadge = '';
+    if (PERMIT_TYPES.has(type)) {
+      const p = state.research?.permits?.[type] ?? 0;
+      const n = state.buildCount?.[type] ?? 0;
+      if (p > 1) permitBadge = `<div class="build-card-permit">${p} permessi</div>`;
+      if (n > 0) permitBadge += `<div class="build-card-permit dim">${n} già costruit${n>1?'e':'a'}</div>`;
+    }
 
     const card = document.createElement('div');
     card.className = `build-card ${affordable ? '' : 'build-card-locked'}`;
@@ -183,7 +212,8 @@ function _populateBuildModal() {
     card.innerHTML =
       `<div class="build-card-icon">${BUILD_ICONS[type] ?? '🏗'}</div>` +
       `<div class="build-card-name">${HEX_LABEL[type] ?? type}</div>` +
-      `<div class="build-card-cost">${costStr}</div>`;
+      `<div class="build-card-cost">${costStr}</div>` +
+      permitBadge;
 
     const btn = document.createElement('button');
     btn.className   = 'build-card-btn';
@@ -197,9 +227,7 @@ function _populateBuildModal() {
     card.appendChild(btn);
 
     if (affordable) {
-      card.addEventListener('click', e => {
-        if (e.target !== btn) btn.click();
-      });
+      card.addEventListener('click', e => { if (e.target !== btn) btn.click(); });
     }
 
     container.appendChild(card);
@@ -239,8 +267,26 @@ function _populateHexModal(state) {
   const titleEl = document.getElementById('hex-modal-title');
 
   if (hex.owned) {
-    titleEl.textContent = HEX_MODAL_LABELS[hex.type] ?? (HEX_LABEL[hex.type] ?? hex.type);
+    const level    = hex.level ?? 1;
+    const levelTag = level > 1 ? ` <span class="hex-level-badge">Lvl ${level}</span>` : '';
+    titleEl.innerHTML = (HEX_MODAL_LABELS[hex.type] ?? (HEX_LABEL[hex.type] ?? hex.type)) + levelTag;
     _renderOwnedHex(container, hex, _hexModalKey, state);
+
+    // Demolish button (not for starter)
+    if (hex.type !== 'starter') {
+      const sep = document.createElement('hr');
+      sep.className = 'panel-sep';
+      container.appendChild(sep);
+
+      container.appendChild(_makeBtn('🗑 Demolisci esagono', 'action-btn danger-action',
+        () => {
+          if (confirm(`Demolire ${HEX_LABEL[hex.type] ?? hex.type}? Riceverai il 40% delle risorse.`)) {
+            const refund = _cb.onDemolish?.(_hexModalKey);
+            closeHexModal();
+          }
+        }
+      ));
+    }
   } else if (hex.purchasable) {
     titleEl.textContent = '🏗 Territorio inesplorato';
     _renderBuildMenu(container, hex, _hexModalKey, state);
@@ -252,37 +298,25 @@ function _populateHexModal(state) {
 export function buildUI(callbacks) {
   _cb = callbacks;
 
-  // Research modal
   document.getElementById('modal-close-btn')
     .addEventListener('click', closeResearchModal);
   document.getElementById('research-modal')
-    .addEventListener('click', e => {
-      if (e.target === e.currentTarget) closeResearchModal();
-    });
+    .addEventListener('click', e => { if (e.target === e.currentTarget) closeResearchModal(); });
 
-  // Build modal
   document.getElementById('build-modal-close-btn')
     .addEventListener('click', closeBuildModal);
   document.getElementById('build-modal')
-    .addEventListener('click', e => {
-      if (e.target === e.currentTarget) closeBuildModal();
-    });
+    .addEventListener('click', e => { if (e.target === e.currentTarget) closeBuildModal(); });
 
-  // Craft modal
   document.getElementById('craft-modal-close-btn')
     .addEventListener('click', closeCraftModal);
   document.getElementById('craft-modal')
-    .addEventListener('click', e => {
-      if (e.target === e.currentTarget) closeCraftModal();
-    });
+    .addEventListener('click', e => { if (e.target === e.currentTarget) closeCraftModal(); });
 
-  // Hex action modal
   document.getElementById('hex-modal-close-btn')
     .addEventListener('click', closeHexModal);
   document.getElementById('hex-modal')
-    .addEventListener('click', e => {
-      if (e.target === e.currentTarget) closeHexModal();
-    });
+    .addEventListener('click', e => { if (e.target === e.currentTarget) closeHexModal(); });
 
   const list = document.getElementById('resource-list');
   list.innerHTML = '';
@@ -305,9 +339,9 @@ export function updateUI() {
   const workers = getWorkers();
   const idle    = getIdleCount();
 
-  document.getElementById('pop-total').textContent   = state.population;
-  document.getElementById('workers-idle').textContent = idle;
-  document.getElementById('workers-busy').textContent = workers.length - idle;
+  document.getElementById('pop-total').textContent    = state.population;
+  document.getElementById('workers-idle').textContent  = idle;
+  document.getElementById('workers-busy').textContent  = workers.length - idle;
 
   for (const r of RESOURCE_LIST) {
     const el  = document.getElementById(`res-amt-${r}`);
@@ -317,7 +351,6 @@ export function updateUI() {
     el.className   = 'res-amount' + (val > 0 ? ' nonzero' : '');
   }
 
-  // Live-refresh open modals
   if (!document.getElementById('hex-modal').classList.contains('hidden')) {
     _populateHexModal(state);
   }
@@ -340,6 +373,10 @@ function _makeBtn(text, cls, onClick, disabled = false) {
   return b;
 }
 
+function _costStr(cost) {
+  return Object.entries(cost).map(([r, n]) => `${n}${RESOURCE_ICON[r]}`).join(' ');
+}
+
 // ── Owned hex panels ──────────────────────────────────────────────────────────
 
 function _renderOwnedHex(container, hex, selKey, state) {
@@ -352,14 +389,15 @@ function _renderOwnedHex(container, hex, selKey, state) {
     case 'caccia':      return _panelCraftStation(container, hex, selKey, state);
     case 'casa':        return _panelCasa(container);
     case 'ospedale':    return _panelOspedale(container, hex, selKey, state);
-    default:            return _panelGather(container, hex, selKey);
+    default:            return _panelGather(container, hex, selKey, state);
   }
 }
 
-function _panelGather(container, hex, selKey) {
+function _panelGather(container, hex, selKey, state) {
   const { q, r } = keyToHex(selKey);
-  const yieldMap = HEX_YIELD[hex.type] ?? {};
-  const yieldStr = Object.entries(yieldMap).map(([res, n]) => `${n} ${RESOURCE_LABEL[res]}`).join(', ');
+  const yieldMap  = computeHexYield(hex);
+  const yieldStr  = Object.entries(yieldMap).map(([res, n]) => `${n} ${RESOURCE_LABEL[res]}`).join(', ');
+  const level     = hex.level ?? 1;
 
   const info = document.createElement('div');
   info.className = 'hex-info-type';
@@ -367,12 +405,12 @@ function _panelGather(container, hex, selKey) {
   container.appendChild(info);
 
   const workers = getWorkers();
-  const busy    = workers.some(w => w.targetHexKey === selKey && w.status !== 'idle');
+  const busy    = workers.some(w => w.targetHexKey === selKey && w.status !== 'idle' && w.status !== 'returning');
 
   if (busy) {
     const hint = document.createElement('div');
     hint.className = 'hint';
-    hint.textContent = 'Lavoratore già in viaggio o al lavoro.';
+    hint.textContent = 'Lavoratore già assegnato.';
     container.appendChild(hint);
   } else {
     container.appendChild(_makeBtn('👷 Invia lavoratore', 'action-btn', () => {
@@ -380,11 +418,38 @@ function _panelGather(container, hex, selKey) {
       closeHexModal();
     }));
   }
+
+  // Upgrade section
+  const upgrades    = HEX_UPGRADES[hex.type] ?? [];
+  const nextUpgrade = upgrades.find(u => u.level === level + 1);
+  if (nextUpgrade) {
+    const unlocked   = state.research?.unlocked ?? [];
+    const isUnlocked = unlocked.includes(nextUpgrade.unlocks);
+    const sep = document.createElement('hr');
+    sep.className = 'panel-sep';
+    container.appendChild(sep);
+
+    if (isUnlocked) {
+      const canAff   = canAfford(nextUpgrade.buildCost);
+      const costDesc = _costStr(nextUpgrade.buildCost);
+      container.appendChild(_makeBtn(
+        `⬆ Potenzia a Lvl ${nextUpgrade.level} — ${costDesc}`,
+        'action-btn' + (canAff ? '' : ' secondary'),
+        () => { _cb.onUpgrade?.(_hexModalKey); closeHexModal(); },
+        !canAff
+      ));
+    } else {
+      const hint = document.createElement('div');
+      hint.className = 'hint';
+      hint.textContent = `Ricerca "${HEX_LABEL[hex.type]} Livello ${nextUpgrade.level}" per sbloccare il potenziamento.`;
+      container.appendChild(hint);
+    }
+  }
 }
 
 function _panelVillaggio(container, state) {
-  const workers  = getWorkers();
-  const unlocked = state.research?.unlocked ?? [];
+  const workers   = getWorkers();
+  const unlocked  = state.research?.unlocked ?? [];
   const canEvolve = unlocked.includes('evoluzione');
   const canAuto   = unlocked.includes('automazione');
 
@@ -392,14 +457,7 @@ function _panelVillaggio(container, state) {
     const div = document.createElement('div');
     div.className = 'worker-row';
 
-    let icon, label;
-    if (w.sick) {
-      icon = '🤒'; label = 'Malato';
-    } else if (w.type === 'evolved') {
-      icon = '⭐'; label = 'Lavoratore Evoluto';
-    } else {
-      icon = '👷'; label = 'Lavoratore';
-    }
+    let icon = w.sick ? '🤒' : w.type === 'evolved' ? '⭐' : '👷';
 
     const statusText = {
       idle:        'In attesa',
@@ -410,14 +468,29 @@ function _panelVillaggio(container, state) {
       crafting:    'Al lavoro',
     }[w.status] ?? w.status;
 
+    // Show destination hex if away
+    let dest = '';
+    if (w.targetHexKey && state.hexes[w.targetHexKey]) {
+      dest = ` → ${HEX_LABEL[state.hexes[w.targetHexKey].type] ?? '?'}`;
+    }
+
     div.innerHTML =
       `<span class="worker-icon">${icon}</span>` +
-      `<span class="worker-label">${label} #${w.id + 1}</span>` +
-      `<span class="worker-status">${statusText}</span>`;
+      `<span class="worker-label">Lavoratore ${workerLabel(w.id)}</span>` +
+      `<span class="worker-status">${statusText}${dest}</span>`;
+
+    // Recall button for away workers
+    if (w.status !== 'idle' && w.status !== 'returning') {
+      const recallBtn = _makeBtn('↩', 'worker-auto-btn',
+        () => { recallWorker(w.id); updateUI(); }
+      );
+      recallBtn.title = 'Richiama al villaggio';
+      div.appendChild(recallBtn);
+    }
 
     if (canAuto && !w.sick) {
       const autoBtn = _makeBtn(
-        w.auto ? '🔄 Auto ON' : '🔄 Auto OFF',
+        w.auto ? '🔄 Auto ON' : '🔄 Auto',
         `worker-auto-btn ${w.auto ? 'active' : ''}`,
         () => { toggleWorkerAuto(w.id); updateUI(); }
       );
@@ -426,8 +499,7 @@ function _panelVillaggio(container, state) {
 
     if (canEvolve && w.type === 'normal' && !w.sick) {
       const enough = canAfford({ lingotti:3 });
-      const evBtn  = _makeBtn(
-        `Evolvi (3🥇)`, 'worker-evolve-btn',
+      const evBtn  = _makeBtn('Evolvi (3🥇)', 'worker-evolve-btn',
         () => { if (evolveWorker(w.id)) updateUI(); },
         !enough
       );
@@ -439,10 +511,10 @@ function _panelVillaggio(container, state) {
 }
 
 function _panelRicerca(container, hex, selKey, state) {
-  const { q, r } = keyToHex(selKey);
-  const workers   = getWorkers();
-  const ra        = (state.research?.active ?? []).find(a => a.hexKey === selKey);
-  const resWorker = workers.find(w => w.status === 'researching' && w.targetHexKey === selKey);
+  const { q, r }    = keyToHex(selKey);
+  const workers     = getWorkers();
+  const ra          = (state.research?.active ?? []).find(a => a.hexKey === selKey);
+  const resWorker   = workers.find(w => w.status === 'researching' && w.targetHexKey === selKey);
   const goingWorker = workers.find(w => w.targetHexKey === selKey && (w.status === 'going' || w.status === 'returning'));
 
   if (!resWorker && !goingWorker) {
@@ -462,7 +534,7 @@ function _panelRicerca(container, hex, selKey, state) {
   }
 
   container.appendChild(_makeBtn('↩ Richiama lavoratore', 'action-btn secondary',
-    () => { recallResearcher(resWorker.id); updateUI(); }
+    () => { recallWorker(resWorker.id); updateUI(); }
   ));
 
   const sep = document.createElement('hr');
@@ -488,10 +560,10 @@ function _panelRicerca(container, hex, selKey, state) {
 }
 
 function _panelCraftStation(container, hex, selKey, state) {
-  const { q, r } = keyToHex(selKey);
-  const workers  = getWorkers();
-  const worker   = workers.find(w => w.targetHexKey === selKey && w.status === 'crafting');
-  const going    = workers.find(w => w.targetHexKey === selKey && (w.status === 'going' || w.status === 'returning'));
+  const { q, r }  = keyToHex(selKey);
+  const workers   = getWorkers();
+  const worker    = workers.find(w => w.targetHexKey === selKey && w.status === 'crafting');
+  const going     = workers.find(w => w.targetHexKey === selKey && (w.status === 'going' || w.status === 'returning'));
 
   if (!worker && !going) {
     container.appendChild(_makeBtn('👷 Invia lavoratore', 'action-btn', () => {
@@ -510,7 +582,7 @@ function _panelCraftStation(container, hex, selKey, state) {
   }
 
   container.appendChild(_makeBtn('↩ Richiama lavoratore', 'action-btn secondary',
-    () => { recallCrafter(worker.id); updateUI(); }
+    () => { recallWorker(worker.id); updateUI(); }
   ));
 
   const ca = hex.craftActive;
@@ -554,7 +626,7 @@ function _panelOspedale(container, hex, selKey, state) {
       const div = document.createElement('div');
       div.className = 'research-active';
       div.innerHTML =
-        `<div class="research-name">🤒 Lavoratore #${w.id + 1} in cura</div>` +
+        `<div class="research-name">🤒 Lavoratore ${workerLabel(w.id)} in cura</div>` +
         `<div class="research-bar-wrap"><div class="research-bar" style="width:${pct}%"></div></div>`;
       container.appendChild(div);
     }

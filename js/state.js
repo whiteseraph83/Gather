@@ -24,9 +24,11 @@ export function createInitialState() {
       { id:0, status:'idle', targetHexKey:null, lastHexKey:null, type:'normal', auto:false, sick:false },
     ],
     research: {
-      active:   [],    // [{ recipeId, elapsed, hexKey }, ...] — one per ricerca hex
-      unlocked: [],
+      active:   [],    // [{ recipeId, elapsed, hexKey }, ...]
+      unlocked: [],    // permanent unlocks (velocita, automazione, evoluzione, field_2 …)
+      permits:  {},    // { casa:1, cucina:0, … } — build permits for PERMIT_TYPES
     },
+    buildCount: {},    // { casa:1, … } — total built of each type (for cost scaling)
   };
 }
 

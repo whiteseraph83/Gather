@@ -1,5 +1,6 @@
 import { WORKER_SPEED, HEX_YIELD, HEAL_TIME, RESEARCH_GEN_TIME,
-         CRAFT_RECIPES, RESEARCH_RECIPES } from './config.js';
+         CRAFT_RECIPES, RESEARCH_RECIPES, MANA_DROP_RATE,
+         PERMIT_TYPES, computeHexYield } from './config.js';
 import { hexToPixel, hexKey } from './hex.js';
 import { getState } from './state.js';
 import { canAfford, deductResources, addResources } from './resources.js';
@@ -74,9 +75,8 @@ export function dispatchWorker(q, r) {
   worker.targetHexKey = key;
   worker.lastHexKey   = key;
 
-  // Pre-set payload for simple gather hexes (not stay-types)
   if (!STAY_TYPES.has(hex.type)) {
-    worker.payload = { ...(HEX_YIELD[hex.type] ?? {}) };
+    worker.payload = computeHexYield(hex);
   }
 
   const sw = state.workers.find(w => w.id === worker.id);
@@ -84,33 +84,35 @@ export function dispatchWorker(q, r) {
   return true;
 }
 
-/** Recall a worker stationed at a craft hex; forfeits the active craft (inputs already consumed). */
-export function recallCrafter(workerId) {
+// ── Recall ────────────────────────────────────────────────────────────────────
+
+/** Universal recall: works for any worker status, returns them to base. */
+export function recallWorker(workerId) {
   const state  = getState();
   const worker = _workers.find(w => w.id === workerId);
-  if (!worker || worker.status !== 'crafting') return;
+  if (!worker || worker.status === 'idle' || worker.status === 'returning') return;
 
-  const hex = state.hexes[worker.targetHexKey];
-  if (hex) hex.craftActive = null;
-
-  worker.status = 'returning';
-  const sw = state.workers.find(w => w.id === workerId);
-  if (sw) sw.status = 'returning';
-}
-
-/** Recall a researching worker; forfeits the research for that hex. */
-export function recallResearcher(workerId) {
-  const worker = _workers.find(w => w.id === workerId);
-  if (!worker || worker.status !== 'researching') return;
-
-  const state = getState();
-  if (Array.isArray(state.research?.active)) {
+  if (worker.status === 'crafting') {
+    const hex = state.hexes[worker.targetHexKey];
+    if (hex) hex.craftActive = null;
+  }
+  if (worker.status === 'researching' && Array.isArray(state.research?.active)) {
     state.research.active = state.research.active.filter(a => a.hexKey !== worker.targetHexKey);
   }
 
   worker.status = 'returning';
   const sw = state.workers.find(w => w.id === workerId);
-  if (sw) sw.status = 'returning';
+  if (sw) { sw.status = 'returning'; sw.targetHexKey = null; }
+}
+
+/** Recall a worker stationed at a craft hex; forfeits the active craft. */
+export function recallCrafter(workerId) {
+  recallWorker(workerId);
+}
+
+/** Recall a researching worker; forfeits the research for that hex. */
+export function recallResearcher(workerId) {
+  recallWorker(workerId);
 }
 
 // ── Workers management ────────────────────────────────────────────────────────
@@ -157,7 +159,7 @@ export function toggleWorkerAuto(workerId) {
 export function updateWorkers(dt, onComplete, onResearchComplete, onCraftComplete, onToast) {
   const state = getState();
 
-  // Advance all active research timers (one per ricerca hex)
+  // Advance all active research timers
   const actives = state.research?.active;
   if (Array.isArray(actives) && actives.length > 0) {
     const toFinish = [];
@@ -173,7 +175,13 @@ export function updateWorkers(dt, onComplete, onResearchComplete, onCraftComplet
     for (const ra of toFinish) {
       const recipe = RESEARCH_RECIPES[ra.recipeId];
       const id     = recipe.unlocks;
-      if (!state.research.unlocked.includes(id)) state.research.unlocked.push(id);
+      // Permit types go to permits; everything else is a permanent unlock
+      if (PERMIT_TYPES.has(id)) {
+        if (!state.research.permits) state.research.permits = {};
+        state.research.permits[id] = (state.research.permits[id] ?? 0) + 1;
+      } else {
+        if (!state.research.unlocked.includes(id)) state.research.unlocked.push(id);
+      }
       state.research.active = actives.filter(a => a !== ra);
       onResearchComplete?.(id, recipe.label);
     }
@@ -196,7 +204,7 @@ export function updateWorkers(dt, onComplete, onResearchComplete, onCraftComplet
       continue;
     }
 
-    // Crafting: timed recipe at craft station
+    // Crafting
     if (w.status === 'crafting') {
       const hex = state.hexes[w.targetHexKey];
       const ca  = hex?.craftActive;
@@ -207,8 +215,7 @@ export function updateWorkers(dt, onComplete, onResearchComplete, onCraftComplet
           if (ca.elapsed >= recipe.time) {
             const output = { ...recipe.output };
             addResources(output);
-            const gotMana = Math.random() < 0.04;
-            if (gotMana) { addResources({ mana:1 }); output.mana = (output.mana ?? 0) + 1; }
+            if (Math.random() < MANA_DROP_RATE) { addResources({ mana:1 }); output.mana = (output.mana ?? 0) + 1; }
             hex.craftActive = null;
             onCraftComplete?.(w.id, output);
           }
@@ -217,7 +224,7 @@ export function updateWorkers(dt, onComplete, onResearchComplete, onCraftComplet
       continue;
     }
 
-    // Researching: passive ricerca generation (1 every 15s)
+    // Researching: passive ricerca generation
     if (w.status === 'researching') {
       w.researchAccum = (w.researchAccum ?? 0) + dt;
       if (w.researchAccum >= RESEARCH_GEN_TIME) {
@@ -255,7 +262,6 @@ export function updateWorkers(dt, onComplete, onResearchComplete, onCraftComplet
           continue;
         }
 
-        // Craft stations: worker stays and waits for a recipe to be selected
         if (CRAFT_RECIPES[hex?.type]) {
           w.status = 'crafting'; w.craftElapsed = 0;
           const sw = state.workers.find(s => s.id === w.id);
@@ -269,17 +275,21 @@ export function updateWorkers(dt, onComplete, onResearchComplete, onCraftComplet
         const payload = { ...w.payload };
         w.status = 'idle'; w.payload = {};
 
-        // Sickness disabled for now
-
         const sw = state.workers.find(s => s.id === w.id);
         if (sw) { sw.status = 'idle'; sw.targetHexKey = null; }
 
-        // Rare mana drop (~4% per trip)
-        if (Math.random() < 0.04) payload.mana = (payload.mana ?? 0) + 1;
+        // Rare mana drop
+        if (Math.random() < MANA_DROP_RATE) payload.mana = (payload.mana ?? 0) + 1;
 
         if (Object.keys(payload).length > 0) onComplete(w.id, payload);
 
-        if (w.auto && w.lastHexKey && !w.sick) pendingAutoDispatch.push(w.lastHexKey);
+        // Auto-dispatch: skip STAY_TYPES to avoid infinite loops after recall
+        if (w.auto && w.lastHexKey && !w.sick) {
+          const lastHex = state.hexes[w.lastHexKey];
+          if (lastHex?.owned && !STAY_TYPES.has(lastHex.type)) {
+            pendingAutoDispatch.push(w.lastHexKey);
+          }
+        }
       }
     } else {
       w.x += (dx / dist) * step;
