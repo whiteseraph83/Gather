@@ -452,6 +452,8 @@ function _lightTickHexModal(state) {
     if (ab) {
       ab.textContent = w.auto ? '🔄 Auto ON' : '🔄 Auto';
       ab.className   = `worker-action-btn ${w.auto ? 'active' : ''}`;
+      ab.disabled    = w.sick;
+      ab.title       = w.sick ? 'Non disponibile mentre il lavoratore è malato' : '';
     }
     // Status badges
     const bb = document.querySelector(`[data-wbadges="${w.id}"]`);
@@ -655,10 +657,12 @@ function _panelVillaggio(container, state) {
       actions.appendChild(recallBtn);
     }
 
-    if (canAuto && !w.sick) {
+    if (canAuto) {
       const autoBtn = document.createElement('button');
       autoBtn.className = `worker-action-btn ${w.auto ? 'active' : ''}`;
       autoBtn.textContent = w.auto ? '🔄 Auto ON' : '🔄 Auto';
+      autoBtn.disabled = w.sick;
+      autoBtn.title = w.sick ? 'Non disponibile mentre il lavoratore è malato' : '';
       autoBtn.dataset.action   = 'auto';
       autoBtn.dataset.workerId = w.id;
       actions.appendChild(autoBtn);
