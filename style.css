@@ -839,8 +839,8 @@ button.action-btn.danger-action:hover:not(:disabled) {
   transform: translateY(-1px);
 }
 .build-card.build-card-locked {
-  opacity: 0.4;
   cursor: not-allowed;
+  filter: saturate(0.5);
 }
 
 .build-card-icon {
