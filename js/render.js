@@ -1,6 +1,7 @@
-import { HEX_SIZE, HEX_COLOR, HEX_LABEL, RESEARCH_GEN_TIME, workerLabel } from './config.js';
+import { HEX_SIZE, HEX_COLOR, HEX_LABEL, RESEARCH_GEN_TIME, RESEARCH_RECIPES, workerLabel } from './config.js';
 import { hexToPixel, hexPath, hexKey } from './hex.js';
 import { getWorkers } from './workers.js';
+import { getState } from './state.js';
 
 // ── Visual constants ──────────────────────────────────────────────────────────
 
@@ -893,7 +894,17 @@ export function render(canvas, ctx, camera, state) {
         w => w.status === 'researching' && w.targetHexKey === key
       );
       if (researcher) {
-        const progress = Math.min(1, (researcher.researchAccum ?? 0) / RESEARCH_GEN_TIME);
+        const state = getState();
+        const ra    = (state.research?.active ?? []).find(a => a.hexKey === key);
+        let progress;
+        if (ra) {
+          // Active recipe: show recipe completion progress
+          const recipe = RESEARCH_RECIPES[ra.recipeId];
+          progress = recipe ? Math.min(1, ra.elapsed / recipe.time) : 0;
+        } else {
+          // No recipe: show passive ricerca accumulation cycle
+          progress = Math.min(1, (researcher.researchAccum ?? 0) / RESEARCH_GEN_TIME);
+        }
         _drawResearchClock(ctx, x, y, progress);
       }
     }
