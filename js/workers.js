@@ -46,7 +46,7 @@ export function initWorkers(state) {
     for (const w of state.workers) { w.sick = false; }
   }
   for (const w of state.workers) {
-    _workers.push({
+    const runtime = {
       id:             w.id,
       status:         'idle',
       type:           w.type       ?? 'normal',
@@ -66,7 +66,30 @@ export function initWorkers(state) {
       resourcePenalty: false,
       targetHexKey:    null,
       lastHexKey:      w.lastHexKey ?? null,
-    });
+    };
+    _workers.push(runtime);
+
+    // Restore activity after page refresh: re-send workers to their saved hex.
+    // 'returning' workers are treated as idle (they were heading home anyway).
+    const saved = w.status ?? 'idle';
+    const key   = w.targetHexKey ?? null;
+    if (saved !== 'idle' && saved !== 'returning' && key) {
+      const hex = state.hexes[key];
+      if (hex?.owned) {
+        const target = hexToPixel(hex.q, hex.r);
+        runtime.status       = 'going';
+        runtime.targetX      = target.x;
+        runtime.targetY      = target.y;
+        runtime.targetHexKey = key;
+        runtime.lastHexKey   = key;
+        if (!STAY_TYPES.has(hex.type)) {
+          runtime.payload         = computeHexYield(hex);
+          runtime.consume         = getHexConsume(hex.type);
+          runtime.resourcePenalty = Object.keys(runtime.consume).length > 0
+                                    && !canAfford(runtime.consume);
+        }
+      }
+    }
   }
 }
 
