@@ -319,6 +319,24 @@ export function buildUI(callbacks) {
   document.getElementById('hex-modal')
     .addEventListener('click', e => { if (e.target === e.currentTarget) closeHexModal(); });
 
+  // Delegated listener for village worker buttons (recall / auto / evolve).
+  // These buttons are destroyed and recreated every updateUI() tick, so we
+  // attach ONE persistent listener to the stable container instead.
+  document.getElementById('hex-modal-content')
+    .addEventListener('click', e => {
+      const btn = e.target.closest('button[data-action]');
+      if (!btn) return;
+      const { action, workerId } = btn.dataset;
+      const id = Number(workerId);
+      if (action === 'recall') {
+        recallWorker(id); updateUI();
+      } else if (action === 'auto') {
+        toggleWorkerAuto(id); updateUI();
+      } else if (action === 'evolve') {
+        if (evolveWorker(id)) updateUI();
+      }
+    });
+
   const list = document.getElementById('resource-list');
   list.innerHTML = '';
   for (const r of RESOURCE_LIST) {
@@ -581,30 +599,35 @@ function _panelVillaggio(container, state) {
       `<span class="worker-label">Lavoratore ${workerLabel(w.id)}</span>` +
       `<span class="worker-status">${statusText}${dest}</span>`;
 
-    // Recall button for away workers
+    // Recall button — uses data-action for event delegation (avoids missed
+    // clicks caused by the button being replaced by the 1-second UI tick)
     if (w.status !== 'idle' && w.status !== 'returning') {
-      const recallBtn = _makeBtn('↩', 'worker-auto-btn',
-        () => { recallWorker(w.id); updateUI(); }
-      );
+      const recallBtn = document.createElement('button');
+      recallBtn.className = 'worker-auto-btn';
+      recallBtn.textContent = '↩';
       recallBtn.title = 'Richiama al villaggio';
+      recallBtn.dataset.action   = 'recall';
+      recallBtn.dataset.workerId = w.id;
       div.appendChild(recallBtn);
     }
 
     if (canAuto && !w.sick) {
-      const autoBtn = _makeBtn(
-        w.auto ? '🔄 Auto ON' : '🔄 Auto',
-        `worker-auto-btn ${w.auto ? 'active' : ''}`,
-        () => { toggleWorkerAuto(w.id); updateUI(); }
-      );
+      const autoBtn = document.createElement('button');
+      autoBtn.className = `worker-auto-btn ${w.auto ? 'active' : ''}`;
+      autoBtn.textContent = w.auto ? '🔄 Auto ON' : '🔄 Auto';
+      autoBtn.dataset.action   = 'auto';
+      autoBtn.dataset.workerId = w.id;
       div.appendChild(autoBtn);
     }
 
     if (canEvolve && w.type === 'normal' && !w.sick) {
       const enough = canAfford({ lingotti:3 });
-      const evBtn  = _makeBtn('Evolvi (3🥇)', 'worker-evolve-btn',
-        () => { if (evolveWorker(w.id)) updateUI(); },
-        !enough
-      );
+      const evBtn  = document.createElement('button');
+      evBtn.className = 'worker-evolve-btn';
+      evBtn.textContent = 'Evolvi (3🥇)';
+      evBtn.disabled = !enough;
+      evBtn.dataset.action   = 'evolve';
+      evBtn.dataset.workerId = w.id;
       div.appendChild(evBtn);
     }
 
