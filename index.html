@@ -35,7 +35,13 @@
       </section>
 
       <section class="panel day-panel">
-        <h2>Tasse giornaliere</h2>
+        <h2>
+          Tasse giornaliere
+          <button class="info-btn" id="day-info-btn" aria-label="Informazioni">ℹ</button>
+        </h2>
+        <div class="info-tooltip hidden" id="day-info-tooltip">
+          Al termine di ogni giornata vengono detratte le tasse. Se le paghi interamente ricevi un bonus a scelta tra 3 opzioni. Le tasse aumentano ogni giorno.
+        </div>
         <div class="day-panel-body">
           <div class="day-sun-col">
             <div id="sun-widget"></div>
@@ -111,7 +117,7 @@
   <div id="levelup-modal" class="modal-overlay hidden">
     <div class="modal-box levelup-modal-box">
       <div class="modal-header levelup-header">
-        <span class="modal-title">⬆ Livello <span id="levelup-num">2</span> raggiunto!</span>
+        <span class="modal-title">🌅 Tasse pagate — Giorno <span id="levelup-num">2</span></span>
       </div>
       <p class="levelup-subtitle">Scegli un potenziamento:</p>
       <div id="levelup-modal-content" class="levelup-modal-content"></div>

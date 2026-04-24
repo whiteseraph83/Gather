@@ -1015,6 +1015,47 @@ button.action-btn.danger-action:hover:not(:disabled) {
   }
 }
 
+/* ── Info button & tooltip ────────────────────────────────────────────────── */
+
+.info-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 1px solid var(--border2);
+  background: rgba(255,255,255,0.06);
+  color: var(--text-dim);
+  font-size: 11px;
+  cursor: pointer;
+  margin-left: 6px;
+  vertical-align: middle;
+  flex-shrink: 0;
+  transition: background 0.15s, color 0.15s;
+  line-height: 1;
+}
+
+.info-btn:hover {
+  background: rgba(200,152,42,0.18);
+  color: var(--gold-light);
+  border-color: var(--gold-dim);
+}
+
+.info-tooltip {
+  font-size: 11px;
+  color: var(--text);
+  background: rgba(10,14,30,0.95);
+  border: 1px solid var(--border2);
+  border-radius: 6px;
+  padding: 7px 10px;
+  margin-top: 6px;
+  line-height: 1.55;
+  box-shadow: 0 4px 14px rgba(0,0,0,0.5);
+}
+
+.info-tooltip.hidden { display: none; }
+
 /* ── Day / tax panel ──────────────────────────────────────────────────────── */
 
 .day-panel-body {

@@ -167,6 +167,17 @@ function init() {
 
   initInput(canvas, camera, () => updateUI(), onAction);
 
+  // Day info tooltip toggle
+  const dayInfoBtn = document.getElementById('day-info-btn');
+  const dayInfoTip = document.getElementById('day-info-tooltip');
+  if (dayInfoBtn && dayInfoTip) {
+    dayInfoBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      dayInfoTip.classList.toggle('hidden');
+    });
+    document.addEventListener('click', () => dayInfoTip.classList.add('hidden'));
+  }
+
   // Mobile sidebar toggle
   const sidebarEl       = document.getElementById('sidebar');
   const sidebarToggle   = document.getElementById('sidebar-toggle');
@@ -209,23 +220,15 @@ function checkAchievements() {
     }
   }
 
-  if (newlyDone) updateUI();
-
-  // All 3 completed → level up
-  if (xp.completedIdx.length >= 3) {
-    xp.level += 1;
-    // Record seen achievements for variety
-    xp.seen = [...(xp.seen ?? []), ...xp.current].slice(-12);
-    xp.current      = pickAchievements(3, new Set(xp.seen));
-    xp.completedIdx = [];
-
-    const choices = generateBonusChoices(xp.level);
-    saveGame();
-    openLevelUpModal(xp.level, choices, (choice) => {
-      applyBonus(choice);
+  if (newlyDone) {
+    // Rotate achievements when all 3 are done (no level-up, just variety)
+    if (xp.completedIdx.length >= 3) {
+      xp.seen = [...(xp.seen ?? []), ...xp.current].slice(-12);
+      xp.current      = pickAchievements(3, new Set(xp.seen));
+      xp.completedIdx = [];
       saveGame();
-      updateUI();
-    });
+    }
+    updateUI();
   }
 }
 
@@ -318,16 +321,29 @@ function loop(timestamp) {
       if (st.dayProgress >= 1) {
         st.dayProgress -= 1;
         const { tax, shortfall } = applyTax(st.day);
+        const taxesPaid = Object.keys(shortfall).length === 0;
         st.day = (st.day ?? 1) + 1;
         const taxParts = Object.entries(tax).map(([r, n]) => `${n} ${RESOURCE_ICON[r] ?? r}`).join(', ');
-        let msg = `🌅 Giorno ${st.day}! Tasse: ${taxParts}`;
-        if (Object.keys(shortfall).length > 0) {
+        let msg = taxesPaid
+          ? `🌅 Giorno ${st.day}! Tasse pagate — scegli un bonus!`
+          : `🌅 Giorno ${st.day}! Tasse: ${taxParts}`;
+        if (!taxesPaid) {
           const sfParts = Object.entries(shortfall).map(([r, n]) => `${n} ${RESOURCE_ICON[r] ?? r}`).join(', ');
           msg += ` (mancano: ${sfParts})`;
         }
         showToast(msg);
         saveGame();
         updateUI();
+
+        // Bonus reward for fully paying taxes
+        if (taxesPaid) {
+          const choices = generateBonusChoices(st.day);
+          openLevelUpModal(st.day, choices, (choice) => {
+            applyBonus(choice);
+            saveGame();
+            updateUI();
+          });
+        }
       }
       updateSunWidget(st.dayProgress, st.day ?? 1);
     }
