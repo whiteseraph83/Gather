@@ -8,7 +8,7 @@ export const AUTOSAVE_MS       = 30_000;
 export const WORKER_SPEED      = 95;
 export const SAVE_KEY          = 'hexdomain_save';
 export const SAVE_VERSION      = 5;
-export const GAME_VERSION      = '1.11';
+export const GAME_VERSION      = '1.12';
 export const HEAL_TIME         = 30;
 export const RESEARCH_GEN_TIME = 5;
 export const MANA_DROP_RATE    = 0.012; // ~1.2% per gather/craft completion
@@ -177,15 +177,16 @@ export function computeHexYield(hex) {
 // ── Resource consumption per gather trip ──────────────────────────────────────
 // Called at dispatch time; random choices (lake/pasture) are resolved then.
 
-export function getHexConsume(hexType) {
+export function getHexConsume(hexType, level = 1) {
+  const lv = Math.max(1, level);
   switch (hexType) {
-    case 'forest':  return { ferro:1 };                                        // ascia di ferro
-    case 'quarry':  return { ferro:1 };                                        // piccone di ferro
-    case 'field':   return { acqua:1 };                                        // irrigazione
-    case 'lake':    return Math.random() < 0.5 ? { grano:1 } : { carne:1 };   // esca
-    case 'pasture': return Math.random() < 0.5 ? { grano:1 } : { carne:1 };   // mangime
-    case 'desert':  return { acqua:1 };                                        // sete
-    case 'mine':    return { legno:1 };                                        // puntelli di legno
+    case 'forest':  return { ferro: lv };                                               // ascia di ferro
+    case 'quarry':  return { ferro: lv };                                               // piccone di ferro
+    case 'field':   return { acqua: lv };                                               // irrigazione
+    case 'lake':    return Math.random() < 0.5 ? { grano: lv } : { carne: lv };        // esca
+    case 'pasture': return Math.random() < 0.5 ? { grano: lv } : { carne: lv };        // mangime
+    case 'desert':  return { acqua: lv };                                               // sete
+    case 'mine':    return { legno: lv };                                               // puntelli di legno
     default:        return {};
   }
 }

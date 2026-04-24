@@ -86,7 +86,7 @@ export function initWorkers(state) {
       runtime.targetHexKey = targetKey;
       runtime.lastHexKey   = targetKey;
       runtime.payload         = computeHexYield(hex);
-      runtime.consume         = getHexConsume(hex.type);
+      runtime.consume         = getHexConsume(hex.type, hex.level ?? 1);
       runtime.resourcePenalty = Object.keys(runtime.consume).length > 0
                                 && !canAfford(runtime.consume);
       return true;
@@ -136,7 +136,7 @@ export function dispatchWorker(q, r) {
   if (!STAY_TYPES.has(hex.type)) {
     worker.payload = computeHexYield(hex);
     // Resolve consumption at dispatch (random for lake/pasture resolved now)
-    const consume = getHexConsume(hex.type);
+    const consume = getHexConsume(hex.type, hex.level ?? 1);
     worker.consume = consume;
     // Check if player can afford the consumption — penalty if not
     worker.resourcePenalty = Object.keys(consume).length > 0 && !canAfford(consume);

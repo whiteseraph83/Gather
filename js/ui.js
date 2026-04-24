@@ -536,7 +536,8 @@ function _panelGather(container, hex, selKey, state) {
 
   // Consumption preview (lake/pasture are random — show both options)
   const isRandom = hex.type === 'lake' || hex.type === 'pasture';
-  const consumeMap = isRandom ? { grano: 1, carne: 1 } : getHexConsume(hex.type);
+  const lv = hex.level ?? 1;
+  const consumeMap = isRandom ? { grano: lv, carne: lv } : getHexConsume(hex.type, lv);
   const consumeEntries = Object.entries(consumeMap).filter(([, n]) => n > 0);
   if (consumeEntries.length > 0) {
     const consumeEl = document.createElement('div');
