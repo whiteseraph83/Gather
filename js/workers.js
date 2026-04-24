@@ -82,10 +82,13 @@ export function dispatchWorker(q, r) {
 
   if (!hex || !hex.owned || hex.type === 'starter') return false;
 
-  const needsSick = hex.type === 'ospedale';
-  const worker    = _workers.find(w =>
-    w.status === 'idle' && (needsSick ? w.sick : !w.sick)
-  );
+  const forHospital = hex.type === 'ospedale';
+  // For hospital: pick a sick idle worker; for any other hex: prefer healthy,
+  // but fall back to sick (they move at ¼ speed but can still work).
+  let worker = forHospital
+    ? _workers.find(w => w.status === 'idle' && w.sick)
+    : _workers.find(w => w.status === 'idle' && !w.sick)
+      ?? _workers.find(w => w.status === 'idle' && w.sick);
   if (!worker) return false;
 
   const target        = hexToPixel(q, r);
