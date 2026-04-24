@@ -1,5 +1,5 @@
 import { AUTOSAVE_MS, RESEARCH_RECIPES, CRAFT_RECIPES, RESOURCE_ICON,
-         PERMIT_TYPES } from './config.js';
+         PERMIT_TYPES, GAME_VERSION } from './config.js';
 import { initState, getState } from './state.js';
 import { loadGame, saveGame, resetGame } from './storage.js';
 import { refreshPurchasable } from './map.js';
@@ -79,6 +79,8 @@ function init() {
   initWorkers(state);
 
   initSunWidget();
+  const verEl = document.getElementById('game-version');
+  if (verEl) verEl.textContent = `v${GAME_VERSION}`;
 
   canvas = document.getElementById('map-canvas');
   ctx    = canvas.getContext('2d');
