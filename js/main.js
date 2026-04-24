@@ -292,17 +292,17 @@ function loop(timestamp) {
           if (!st.stats) st.stats = { totalCrafted:0, totalManaFound:0 };
           st.stats.totalManaFound = (st.stats.totalManaFound ?? 0) + payload.mana;
         }
-        saveGame(); showToast(_formatGains(payload)); updateUI();
+        saveGame(); showToast(_formatGains(payload)); updateUI(false);
       },
-      (_id, label)   => { saveGame(); showToast(`✅ Ricerca completata: ${label}!`); updateUI(); },
+      (_id, label)   => { saveGame(); showToast(`✅ Ricerca completata: ${label}!`); updateUI(false); },
       (_id, output)  => {
         const st = getState();
         if (!st.stats) st.stats = { totalCrafted:0, totalManaFound:0 };
         st.stats.totalCrafted = (st.stats.totalCrafted ?? 0) + 1;
         if ((output.mana ?? 0) > 0) st.stats.totalManaFound = (st.stats.totalManaFound ?? 0) + output.mana;
-        saveGame(); showToast('✅ ' + _formatGains(output)); updateUI();
+        saveGame(); showToast('✅ ' + _formatGains(output)); updateUI(false);
       },
-      (msg)          => { saveGame(); showToast(msg); updateUI(); },
+      (msg)          => { saveGame(); showToast(msg); updateUI(false); },
       (res)          => {
         // onConsume: log the consumption for the sidebar panel
         const st = getState();
@@ -360,7 +360,7 @@ function loop(timestamp) {
       checkAchievements();
       const hasActive = (st.research?.active?.length > 0) ||
         getWorkers().some(w => w.status === 'healing' || w.status === 'researching' || w.status === 'crafting');
-      if (hasActive) updateUI();
+      if (hasActive) updateUI(false); // lightweight — no modal rebuild
     }
 
     render(canvas, ctx, camera, getState());

@@ -379,7 +379,14 @@ export function openLevelUpModal(level, choices, onSelect) {
 
 // ── Dynamic update ────────────────────────────────────────────────────────────
 
-export function updateUI() {
+/**
+ * updateUI(fullModal)
+ *   fullModal = true  → full rebuild of any open modal (use after player actions)
+ *   fullModal = false → lightweight in-place update only (use from game-loop callbacks)
+ *                       avoids destroying/recreating DOM elements that cause flicker
+ *                       and missed clicks
+ */
+export function updateUI(fullModal = true) {
   const state   = getState();
   const workers = getWorkers();
   const idle    = getIdleCount();
@@ -399,14 +406,56 @@ export function updateUI() {
   _renderAchievements(state);
   _renderConsumptions(state);
 
-  if (!document.getElementById('hex-modal').classList.contains('hidden')) {
-    _populateHexModal(state);
+  const hexModalOpen      = !document.getElementById('hex-modal').classList.contains('hidden');
+  const researchModalOpen = !document.getElementById('research-modal').classList.contains('hidden');
+  const craftModalOpen    = !document.getElementById('craft-modal').classList.contains('hidden');
+
+  if (fullModal) {
+    if (hexModalOpen)      _populateHexModal(state);
+    if (researchModalOpen) _populateResearchModal(state);
+    if (craftModalOpen)    _populateCraftModal(state);
+  } else {
+    // Lightweight: update only dynamic text/state inside open modals, no innerHTML wipe
+    if (hexModalOpen)      _lightTickHexModal(state);
+    if (researchModalOpen) _populateResearchModal(state); // small enough to rebuild safely
+    if (craftModalOpen)    _populateCraftModal(state);   // same
   }
-  if (!document.getElementById('research-modal').classList.contains('hidden')) {
-    _populateResearchModal(state);
-  }
-  if (!document.getElementById('craft-modal').classList.contains('hidden')) {
-    _populateCraftModal(state);
+}
+
+// ── Lightweight in-place hex modal tick ───────────────────────────────────────
+// Updates worker status text and recall-button state without touching innerHTML.
+function _lightTickHexModal(state) {
+  if (!_hexModalKey) return;
+  const hex = state.hexes[_hexModalKey];
+  if (!hex || hex.type !== 'starter') return; // only village has dynamic worker rows
+
+  const STATUS_LABEL = {
+    idle:'In attesa', going:'In viaggio', returning:'In rientro',
+    researching:'In ricerca', healing:'In cura', crafting:'Al lavoro',
+  };
+
+  for (const w of getWorkers()) {
+    // Status text
+    const stEl = document.querySelector(`[data-wstatus="${w.id}"]`);
+    if (stEl) {
+      const dest = w.targetHexKey && state.hexes[w.targetHexKey]
+        ? ` → ${HEX_LABEL[state.hexes[w.targetHexKey].type] ?? '?'}` : '';
+      stEl.textContent = (STATUS_LABEL[w.status] ?? w.status) + dest;
+    }
+    // Recall button
+    const rb = document.querySelector(`button[data-action="recall"][data-worker-id="${w.id}"]`);
+    if (rb) {
+      const returning = w.status === 'returning';
+      rb.disabled     = returning;
+      rb.textContent  = returning ? '↩…' : '↩';
+      rb.title        = returning ? 'Già in rientro' : 'Richiama al villaggio';
+    }
+    // Auto button label
+    const ab = document.querySelector(`button[data-action="auto"][data-worker-id="${w.id}"]`);
+    if (ab) {
+      ab.textContent = w.auto ? '🔄 Auto ON' : '🔄 Auto';
+      ab.className   = `worker-auto-btn ${w.auto ? 'active' : ''}`;
+    }
   }
 }
 
@@ -597,7 +646,7 @@ function _panelVillaggio(container, state) {
     div.innerHTML =
       `<span class="worker-icon">${icon}</span>` +
       `<span class="worker-label">Lavoratore ${workerLabel(w.id)}</span>` +
-      `<span class="worker-status">${statusText}${dest}</span>`;
+      `<span class="worker-status" data-wstatus="${w.id}">${statusText}${dest}</span>`;
 
     // Recall button — always shown when worker is not idle.
     // Disabled (greyed) while already returning so the player can see the state.

@@ -69,26 +69,35 @@ export function initWorkers(state) {
     };
     _workers.push(runtime);
 
-    // Restore activity after page refresh: re-send workers to their saved hex.
-    // 'returning' workers are treated as idle (they were heading home anyway).
+    // Restore activity after page refresh.
+    // - active workers (going/researching/crafting/healing) → re-send to their hex
+    // - returning workers → idle (they were heading home; if auto=on they'll re-dispatch)
+    // - idle AUTO workers → re-dispatch to lastHexKey if it's a gather hex
     const saved = w.status ?? 'idle';
     const key   = w.targetHexKey ?? null;
+
+    const _sendToHex = (targetKey) => {
+      const hex = state.hexes[targetKey];
+      if (!hex?.owned || STAY_TYPES.has(hex.type)) return false;
+      const target = hexToPixel(hex.q, hex.r);
+      runtime.status       = 'going';
+      runtime.targetX      = target.x;
+      runtime.targetY      = target.y;
+      runtime.targetHexKey = targetKey;
+      runtime.lastHexKey   = targetKey;
+      runtime.payload         = computeHexYield(hex);
+      runtime.consume         = getHexConsume(hex.type);
+      runtime.resourcePenalty = Object.keys(runtime.consume).length > 0
+                                && !canAfford(runtime.consume);
+      return true;
+    };
+
     if (saved !== 'idle' && saved !== 'returning' && key) {
-      const hex = state.hexes[key];
-      if (hex?.owned) {
-        const target = hexToPixel(hex.q, hex.r);
-        runtime.status       = 'going';
-        runtime.targetX      = target.x;
-        runtime.targetY      = target.y;
-        runtime.targetHexKey = key;
-        runtime.lastHexKey   = key;
-        if (!STAY_TYPES.has(hex.type)) {
-          runtime.payload         = computeHexYield(hex);
-          runtime.consume         = getHexConsume(hex.type);
-          runtime.resourcePenalty = Object.keys(runtime.consume).length > 0
-                                    && !canAfford(runtime.consume);
-        }
-      }
+      // Worker was active — resume going to that hex
+      _sendToHex(key);
+    } else if (runtime.auto && !runtime.sick && runtime.lastHexKey) {
+      // Worker was idle/returning with AUTO ON — re-dispatch to last hex
+      _sendToHex(runtime.lastHexKey);
     }
   }
 }
