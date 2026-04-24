@@ -453,6 +453,9 @@ function _lightTickHexModal(state) {
       ab.textContent = w.auto ? '🔄 Auto ON' : '🔄 Auto';
       ab.className   = `worker-auto-btn ${w.auto ? 'active' : ''}`;
     }
+    // Status badges
+    const bb = document.querySelector(`[data-wbadges="${w.id}"]`);
+    if (bb) bb.innerHTML = _workerBadgesHtml(w);
   }
 }
 
@@ -491,6 +494,14 @@ function _makeBtn(text, cls, onClick, disabled = false) {
   b.disabled    = disabled;
   b.addEventListener('click', onClick);
   return b;
+}
+
+function _workerBadgesHtml(w) {
+  const badges = [];
+  if (w.sick)            badges.push(`<span class="wbadge wbadge-sick">🤒 Malato</span>`);
+  if (w.resourcePenalty) badges.push(`<span class="wbadge wbadge-slow">🐌 Rallentato</span>`);
+  if (w.auto)            badges.push(`<span class="wbadge wbadge-auto">🔄 Auto</span>`);
+  return badges.join('');
 }
 
 function _costStr(cost) {
@@ -625,7 +636,8 @@ function _panelVillaggio(container, state) {
     div.innerHTML =
       `<span class="worker-icon">${icon}</span>` +
       `<span class="worker-label">Lavoratore ${workerLabel(w.id)}</span>` +
-      `<span class="worker-status" data-wstatus="${w.id}">${statusText}${dest}</span>`;
+      `<span class="worker-status" data-wstatus="${w.id}">${statusText}${dest}</span>` +
+      `<span class="worker-badges" data-wbadges="${w.id}">${_workerBadgesHtml(w)}</span>`;
 
     // Recall button — always shown when worker is not idle.
     // Disabled (greyed) while already returning so the player can see the state.
