@@ -599,13 +599,15 @@ function _panelVillaggio(container, state) {
       `<span class="worker-label">Lavoratore ${workerLabel(w.id)}</span>` +
       `<span class="worker-status">${statusText}${dest}</span>`;
 
-    // Recall button — uses data-action for event delegation (avoids missed
-    // clicks caused by the button being replaced by the 1-second UI tick)
-    if (w.status !== 'idle' && w.status !== 'returning') {
+    // Recall button — always shown when worker is not idle.
+    // Disabled (greyed) while already returning so the player can see the state.
+    if (w.status !== 'idle') {
+      const returning = w.status === 'returning';
       const recallBtn = document.createElement('button');
       recallBtn.className = 'worker-auto-btn';
-      recallBtn.textContent = '↩';
-      recallBtn.title = 'Richiama al villaggio';
+      recallBtn.textContent = returning ? '↩…' : '↩';
+      recallBtn.title    = returning ? 'Già in rientro' : 'Richiama al villaggio';
+      recallBtn.disabled = returning;
       recallBtn.dataset.action   = 'recall';
       recallBtn.dataset.workerId = w.id;
       div.appendChild(recallBtn);
