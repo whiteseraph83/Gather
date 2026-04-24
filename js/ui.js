@@ -61,22 +61,12 @@ function _populateResearchModal(state) {
   const searchWrap = document.createElement('div');
   searchWrap.className = 'research-search-wrap';
 
-  const datalist = document.createElement('datalist');
-  datalist.id = 'research-suggestions';
-  Object.values(RESEARCH_RECIPES).forEach(r => {
-    const opt = document.createElement('option');
-    opt.value = r.label;
-    datalist.appendChild(opt);
-  });
-
   const searchInput = document.createElement('input');
   searchInput.type        = 'search';
   searchInput.placeholder = '🔍 Cerca ricerca…';
   searchInput.className   = 'research-search';
-  searchInput.setAttribute('list', 'research-suggestions');
   searchInput.setAttribute('autocomplete', 'off');
 
-  searchWrap.appendChild(datalist);
   searchWrap.appendChild(searchInput);
   container.appendChild(searchWrap);
 
