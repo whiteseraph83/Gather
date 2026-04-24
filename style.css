@@ -267,6 +267,13 @@ html, body {
 .hex-info-type {
   font-size: 11px;
   color: var(--text-dim);
+  margin-bottom: 4px;
+  line-height: 1.6;
+}
+
+.hex-consume-info {
+  font-size: 11px;
+  color: #ff9070;
   margin-bottom: 8px;
   line-height: 1.6;
 }

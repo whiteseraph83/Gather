@@ -2,7 +2,7 @@ import {
   RESOURCE_LIST, RESOURCE_LABEL, RESOURCE_ICON,
   HEX_LABEL, HEX_YIELD, BUILD_COST,
   RESEARCH_RECIPES, CRAFT_RECIPES,
-  PERMIT_TYPES, HEX_UPGRADES, computeHexYield, workerLabel,
+  PERMIT_TYPES, HEX_UPGRADES, computeHexYield, workerLabel, getHexConsume,
 } from './config.js';
 import { getState } from './state.js';
 import { getWorkers, getIdleCount, recallWorker, evolveWorker, toggleWorkerAuto } from './workers.js';
@@ -533,6 +533,18 @@ function _panelGather(container, hex, selKey, state) {
   info.className = 'hex-info-type';
   info.textContent = `Produzione: ${yieldStr}`;
   container.appendChild(info);
+
+  // Consumption preview (lake/pasture are random — show both options)
+  const isRandom = hex.type === 'lake' || hex.type === 'pasture';
+  const consumeMap = isRandom ? { grano: 1, carne: 1 } : getHexConsume(hex.type);
+  const consumeEntries = Object.entries(consumeMap).filter(([, n]) => n > 0);
+  if (consumeEntries.length > 0) {
+    const consumeEl = document.createElement('div');
+    consumeEl.className = 'hex-consume-info';
+    const parts = consumeEntries.map(([r, n]) => `-${n} ${RESOURCE_ICON[r] ?? r} ${RESOURCE_LABEL[r] ?? r}`);
+    consumeEl.textContent = `Consumo: ${parts.join(isRandom ? ' o ' : ', ')}`;
+    container.appendChild(consumeEl);
+  }
 
   const workers = getWorkers();
   const busy    = workers.some(w => w.targetHexKey === selKey && w.status !== 'idle' && w.status !== 'returning');
