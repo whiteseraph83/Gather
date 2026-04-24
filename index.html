@@ -52,7 +52,13 @@
       </section>
 
       <section class="panel consume-panel">
-        <h2>Consumi</h2>
+        <h2>
+          Consumi
+          <button class="info-btn" id="consume-info-btn" aria-label="Informazioni">ℹ</button>
+        </h2>
+        <div class="info-tooltip hidden" id="consume-info-tooltip">
+          Ogni lavoratore che torna da un raccolta consuma una risorsa: Bosco/Cava/Miniera consumano ⚙ ferro, Campo/Deserto consumano 💧 acqua, Lago/Pascolo consumano 🌾 grano o 🥩 carne (casuale). Se le risorse mancano al momento della partenza, il lavoratore andrà a metà velocità.
+        </div>
         <div id="consume-list" class="consume-list"></div>
       </section>
 

@@ -167,16 +167,16 @@ function init() {
 
   initInput(canvas, camera, () => updateUI(), onAction);
 
-  // Day info tooltip toggle
-  const dayInfoBtn = document.getElementById('day-info-btn');
-  const dayInfoTip = document.getElementById('day-info-tooltip');
-  if (dayInfoBtn && dayInfoTip) {
-    dayInfoBtn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      dayInfoTip.classList.toggle('hidden');
-    });
-    document.addEventListener('click', () => dayInfoTip.classList.add('hidden'));
+  // Info tooltip toggles
+  function _bindInfoBtn(btnId, tipId) {
+    const btn = document.getElementById(btnId);
+    const tip = document.getElementById(tipId);
+    if (!btn || !tip) return;
+    btn.addEventListener('click', (e) => { e.stopPropagation(); tip.classList.toggle('hidden'); });
+    document.addEventListener('click', () => tip.classList.add('hidden'));
   }
+  _bindInfoBtn('day-info-btn',     'day-info-tooltip');
+  _bindInfoBtn('consume-info-btn', 'consume-info-tooltip');
 
   // Mobile sidebar toggle
   const sidebarEl       = document.getElementById('sidebar');
