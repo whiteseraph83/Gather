@@ -1,4 +1,4 @@
-import { WORKER_SPEED, HEX_YIELD, HEAL_TIME, RESEARCH_GEN_TIME,
+import { WORKER_SPEED, HEX_YIELD, RESEARCH_GEN_TIME,
          CRAFT_RECIPES, RESEARCH_RECIPES, MANA_DROP_RATE,
          PERMIT_TYPES, computeHexYield } from './config.js';
 import { hexToPixel, hexKey } from './hex.js';
@@ -11,11 +11,26 @@ const _workers = [];
 
 const STAY_TYPES = new Set(['ricerca', 'ospedale', 'cucina', 'fabbro', 'falegnameria', 'caccia']);
 
+const SICK_CHANCE  = 0.08;  // 8 % chance per gather when AUTO is on and automazione unlocked
+const SICK_BASE_S  = 60;    // minimum heal time (seconds)
+const SICK_SCALE_S = 30;    // extra seconds per game level above 1
+
+/** Returns heal time in seconds for a sick worker at the current game level. */
+export function sickHealTime(state) {
+  const lv = state.xp?.level ?? 1;
+  return SICK_BASE_S + Math.max(0, lv - 1) * SICK_SCALE_S;
+}
+
 function _effectiveSpeed(worker) {
-  const unlocked = getState().research?.unlocked ?? [];
+  const state    = getState();
+  const unlocked = state.research?.unlocked ?? [];
   let speed = WORKER_SPEED;
   if (unlocked.includes('velocita')) speed *= 1.5;
   if (worker.type === 'evolved')      speed *= 2;
+  if (worker.sick)                    speed *= 0.25; // sick workers are slow
+  const now = Date.now();
+  const sb  = (state.xp?.bonusActive ?? []).find(b => b.type === 'speed_worker' && b.expiresAt > now);
+  if (sb) speed *= sb.multiplier;
   return speed;
 }
 
@@ -160,6 +175,16 @@ export function updateWorkers(dt, onComplete, onResearchComplete, onCraftComplet
   const state = getState();
 
   // Advance all active research timers
+  const now     = Date.now();
+  const rsMult  = (() => {
+    const rb = (state.xp?.bonusActive ?? []).find(b => b.type === 'speed_research' && b.expiresAt > now);
+    return rb ? rb.multiplier : 1;
+  })();
+  const rmMult  = (() => {
+    const rb = (state.xp?.bonusActive ?? []).find(b => b.type === 'resource_mult' && b.expiresAt > now);
+    return rb ? rb.multiplier : 1;
+  })();
+
   const actives = state.research?.active;
   if (Array.isArray(actives) && actives.length > 0) {
     const toFinish = [];
@@ -168,7 +193,7 @@ export function updateWorkers(dt, onComplete, onResearchComplete, onCraftComplet
         w => w.status === 'researching' && w.targetHexKey === ra.hexKey
       );
       if (!hasResearcher) continue;
-      ra.elapsed += dt;
+      ra.elapsed += dt * rsMult;
       const recipe = RESEARCH_RECIPES[ra.recipeId];
       if (recipe && ra.elapsed >= recipe.time) toFinish.push(ra);
     }
@@ -195,7 +220,7 @@ export function updateWorkers(dt, onComplete, onResearchComplete, onCraftComplet
     // Healing
     if (w.status === 'healing') {
       w.healElapsed = (w.healElapsed ?? 0) + dt;
-      if (w.healElapsed >= HEAL_TIME) {
+      if (w.healElapsed >= sickHealTime(state)) {
         w.sick = false; w.healElapsed = 0; w.status = 'returning';
         const sw = state.workers.find(s => s.id === w.id);
         if (sw) { sw.sick = false; sw.status = 'returning'; }
@@ -226,7 +251,7 @@ export function updateWorkers(dt, onComplete, onResearchComplete, onCraftComplet
 
     // Researching: passive ricerca generation
     if (w.status === 'researching') {
-      w.researchAccum = (w.researchAccum ?? 0) + dt;
+      w.researchAccum = (w.researchAccum ?? 0) + dt * rsMult;
       if (w.researchAccum >= RESEARCH_GEN_TIME) {
         w.researchAccum -= RESEARCH_GEN_TIME;
         addResources({ ricerca: 1 });
@@ -278,10 +303,28 @@ export function updateWorkers(dt, onComplete, onResearchComplete, onCraftComplet
         const sw = state.workers.find(s => s.id === w.id);
         if (sw) { sw.status = 'idle'; sw.targetHexKey = null; }
 
+        // Apply resource multiplier bonus (gather hexes only — skip mana)
+        if (rmMult > 1 && Object.keys(payload).length > 0) {
+          for (const r of Object.keys(payload)) {
+            if (r !== 'mana') payload[r] = Math.round((payload[r] ?? 0) * rmMult);
+          }
+        }
+
         // Rare mana drop
         if (Math.random() < MANA_DROP_RATE) payload.mana = (payload.mana ?? 0) + 1;
 
         if (Object.keys(payload).length > 0) onComplete(w.id, payload);
+
+        // Sickness roll: AUTO workers can fall ill after each gather if automazione is unlocked
+        const automUnlocked = (state.research?.unlocked ?? []).includes('automazione');
+        if (w.auto && automUnlocked && !w.sick && Object.keys(payload).length > 0) {
+          if (Math.random() < SICK_CHANCE) {
+            w.sick = true;
+            const sw2 = state.workers.find(s => s.id === w.id);
+            if (sw2) sw2.sick = true;
+            onToast?.('🤒 Un lavoratore si è ammalato!');
+          }
+        }
 
         // Auto-dispatch: skip STAY_TYPES to avoid infinite loops after recall
         if (w.auto && w.lastHexKey && !w.sick) {

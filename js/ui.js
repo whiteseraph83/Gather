@@ -4,6 +4,7 @@ import {
   RESEARCH_RECIPES, CRAFT_RECIPES,
   PERMIT_TYPES, HEX_UPGRADES, computeHexYield, workerLabel,
 } from './config.js';
+import { ACHIEVEMENT_POOL } from './achievements.js';
 import { getState } from './state.js';
 import { getWorkers, getIdleCount, recallWorker, evolveWorker, toggleWorkerAuto } from './workers.js';
 import { hexDistance, keyToHex, hexKey } from './hex.js';
@@ -332,6 +333,32 @@ export function buildUI(callbacks) {
   }
 }
 
+// ── Level-up modal ────────────────────────────────────────────────────────────
+
+let _onBonusSelect = null;
+
+export function openLevelUpModal(level, choices, onSelect) {
+  _onBonusSelect = onSelect;
+  document.getElementById('levelup-num').textContent = level;
+  const container = document.getElementById('levelup-modal-content');
+  container.innerHTML = '';
+
+  for (const choice of choices) {
+    const card = document.createElement('div');
+    card.className = 'levelup-card';
+    card.innerHTML =
+      `<div class="levelup-card-label">${choice.label}</div>` +
+      `<div class="levelup-card-desc">${choice.desc}</div>`;
+    card.addEventListener('click', () => {
+      document.getElementById('levelup-modal').classList.add('hidden');
+      _onBonusSelect?.(choice);
+    });
+    container.appendChild(card);
+  }
+
+  document.getElementById('levelup-modal').classList.remove('hidden');
+}
+
 // ── Dynamic update ────────────────────────────────────────────────────────────
 
 export function updateUI() {
@@ -351,6 +378,8 @@ export function updateUI() {
     el.className   = 'res-amount' + (val > 0 ? ' nonzero' : '');
   }
 
+  _renderAchievements(state);
+
   if (!document.getElementById('hex-modal').classList.contains('hidden')) {
     _populateHexModal(state);
   }
@@ -359,6 +388,50 @@ export function updateUI() {
   }
   if (!document.getElementById('craft-modal').classList.contains('hidden')) {
     _populateCraftModal(state);
+  }
+}
+
+// ── Achievements sidebar ──────────────────────────────────────────────────────
+
+function _renderAchievements(state) {
+  const lvEl   = document.getElementById('xp-level');
+  const list   = document.getElementById('achievement-list');
+  const bonBar = document.getElementById('bonus-bar');
+  if (!lvEl || !list) return;
+
+  const xp = state.xp ?? {};
+  lvEl.textContent = `Lv ${xp.level ?? 1}`;
+
+  // Achievement rows
+  list.innerHTML = '';
+  const current = xp.current ?? [];
+  const done    = new Set(xp.completedIdx ?? []);
+
+  for (let i = 0; i < current.length; i++) {
+    const ach     = ACHIEVEMENT_POOL.find(a => a.id === current[i]);
+    if (!ach) continue;
+    const isDone  = done.has(i);
+    const row     = document.createElement('div');
+    row.className = `ach-row${isDone ? ' done' : ''}`;
+    row.innerHTML =
+      `<span class="ach-check">${isDone ? '✅' : '⭕'}</span>` +
+      `<span class="ach-text"><span class="ach-label">${ach.label}</span><span class="ach-desc">${ach.desc}</span></span>`;
+    list.appendChild(row);
+  }
+
+  // Active bonus badges
+  if (bonBar) {
+    bonBar.innerHTML = '';
+    const now = Date.now();
+    for (const b of (xp.bonusActive ?? [])) {
+      if (b.expiresAt <= now) continue;
+      const remSec = Math.ceil((b.expiresAt - now) / 1000);
+      const badge  = document.createElement('span');
+      badge.className = 'bonus-badge';
+      const emoji = b.type === 'speed_worker' ? '⚡' : b.type === 'speed_research' ? '🔬' : '📦';
+      badge.textContent = `${emoji} ×${b.multiplier} ${remSec}s`;
+      bonBar.appendChild(badge);
+    }
   }
 }
 

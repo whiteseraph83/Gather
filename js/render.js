@@ -1,4 +1,4 @@
-import { HEX_SIZE, HEX_COLOR, HEX_LABEL, RESEARCH_GEN_TIME } from './config.js';
+import { HEX_SIZE, HEX_COLOR, HEX_LABEL, RESEARCH_GEN_TIME, workerLabel } from './config.js';
 import { hexToPixel, hexPath, hexKey } from './hex.js';
 import { getWorkers } from './workers.js';
 
@@ -453,6 +453,37 @@ function _drawLabel(ctx, cx, cy, type) {
   ctx.restore();
 }
 
+function _drawUpgradeBadge(ctx, cx, cy, level) {
+  if (!level || level <= 1) return;
+  const R  = DS * 0.20;
+  const bx = cx + DS * 0.52;
+  const by = cy - DS * 0.52;
+
+  ctx.save();
+  // Gold circle background
+  const grad = ctx.createRadialGradient(bx - R*0.25, by - R*0.25, 0, bx, by, R);
+  grad.addColorStop(0, '#ffe57a');
+  grad.addColorStop(1, '#b8760a');
+  ctx.beginPath();
+  ctx.arc(bx, by, R, 0, Math.PI * 2);
+  ctx.fillStyle = grad;
+  ctx.shadowColor = 'rgba(0,0,0,0.8)';
+  ctx.shadowBlur  = 4;
+  ctx.fill();
+  ctx.strokeStyle = '#fff';
+  ctx.lineWidth   = 1;
+  ctx.stroke();
+
+  // Level number
+  ctx.shadowBlur = 2;
+  ctx.fillStyle  = '#3a2000';
+  ctx.font       = `bold ${Math.round(R * 1.1)}px sans-serif`;
+  ctx.textAlign    = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(level, bx, by + 0.5);
+  ctx.restore();
+}
+
 // ── Draw one owned hex ────────────────────────────────────────────────────────
 
 function _drawOwnedHex(ctx, cx, cy, hex, isSelected, pulse) {
@@ -498,6 +529,7 @@ function _drawOwnedHex(ctx, cx, cy, hex, isSelected, pulse) {
 
   // 6 ── Labels
   _drawLabel(ctx, cx, cy, hex.type);
+  _drawUpgradeBadge(ctx, cx, cy, hex.level);
 }
 
 // ── Draw one purchasable (unknown) hex ───────────────────────────────────────
@@ -662,7 +694,7 @@ function _drawWorkers(ctx) {
     ctx.font         = `bold ${Math.round(R*1.15)}px 'Palatino Linotype',Georgia,serif`;
     ctx.textAlign    = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText(w.id + 1, w.x, w.y);
+    ctx.fillText(workerLabel(w.id), w.x, w.y);
     ctx.restore();
   }
 }
@@ -801,6 +833,7 @@ export function render(canvas, ctx, camera, state) {
       ctx.restore();
     }
     _drawLabel(ctx, x, y, hex.type);
+    _drawUpgradeBadge(ctx, x, y, hex.level);
 
     // Research clock overlay for ricerca hex with active researcher
     if (hex.type === 'ricerca') {

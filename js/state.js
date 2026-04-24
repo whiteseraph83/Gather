@@ -29,6 +29,19 @@ export function createInitialState() {
       permits:  {},    // { casa:1, cucina:0, … } — build permits for PERMIT_TYPES
     },
     buildCount: {},    // { casa:1, … } — total built of each type (for cost scaling)
+    xp: {
+      level:        1,
+      current:      [],    // 3 current achievement IDs
+      completedIdx: [],    // indices (0/1/2) of completed achievements in current cycle
+      bonusActive:  [],    // [{ type, multiplier, expiresAt }]
+      seen:         [],    // recently seen achievement IDs (for variety)
+    },
+    stats: {
+      totalCrafted:   0,
+      totalManaFound: 0,
+    },
+    day:         1,
+    dayProgress: 0,   // 0.0–1.0 (fraction of current day elapsed)
   };
 }
 

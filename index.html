@@ -34,11 +34,20 @@
         <div id="resource-list"></div>
       </section>
 
+      <section class="panel ach-panel">
+        <h2>Traguardi <span class="xp-level-badge" id="xp-level">Lv 1</span></h2>
+        <div id="bonus-bar"></div>
+        <div id="achievement-list"></div>
+      </section>
+
       <section class="panel">
         <button id="reset-btn" class="danger-btn">↺ Nuova partita</button>
       </section>
     </aside>
   </div>
+
+  <!-- Sun / day widget -->
+  <div id="sun-widget" aria-label="Avanzamento del giorno"></div>
 
   <div id="toast"></div>
 
@@ -85,6 +94,17 @@
       <div id="research-modal-content" class="modal-content"></div>
     </div>
   </div>
+  <!-- Level-up modal (no close button — player must choose a bonus) -->
+  <div id="levelup-modal" class="modal-overlay hidden">
+    <div class="modal-box levelup-modal-box">
+      <div class="modal-header levelup-header">
+        <span class="modal-title">⬆ Livello <span id="levelup-num">2</span> raggiunto!</span>
+      </div>
+      <p class="levelup-subtitle">Scegli un potenziamento:</p>
+      <div id="levelup-modal-content" class="levelup-modal-content"></div>
+    </div>
+  </div>
+
   <!-- Allow game loop to run in background tabs (setTimeout fires even when hidden) -->
   <script>
     (function() {

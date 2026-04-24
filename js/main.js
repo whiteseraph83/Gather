@@ -7,9 +7,11 @@ import { initWorkers, updateWorkers, dispatchWorker, getWorkers } from './worker
 import { addResources, canAfford, deductResources } from './resources.js';
 import { buildHex, upgradeHex, demolishHex, getPermitResearchCost } from './economy.js';
 import { render, invalidateBg } from './render.js';
-import { buildUI, updateUI, openHexModal } from './ui.js';
+import { buildUI, updateUI, openHexModal, openLevelUpModal } from './ui.js';
 import { initInput } from './input.js';
 import { hexToPixel } from './hex.js';
+import { ACHIEVEMENT_POOL, computeHelpers, pickAchievements, generateBonusChoices } from './achievements.js';
+import { DAY_DURATION, applyTax, initSunWidget, updateSunWidget } from './day.js';
 
 const SIDEBAR_W = 280;
 
@@ -58,8 +60,24 @@ function init() {
     if (w.lastHexKey == null) w.lastHexKey = null;
   }
 
+  // ── XP / achievements migration ───────────────────────────────────────────
+  if (!state.xp) {
+    state.xp = { level:1, current:[], completedIdx:[], bonusActive:[], seen:[] };
+  }
+  if (!state.xp.bonusActive)  state.xp.bonusActive  = [];
+  if (!state.xp.seen)         state.xp.seen         = [];
+  if (!state.xp.current || state.xp.current.length === 0) {
+    state.xp.current      = pickAchievements(3, new Set(state.xp.seen ?? []));
+    state.xp.completedIdx = [];
+  }
+  if (!state.stats)       state.stats = { totalCrafted: 0, totalManaFound: 0 };
+  if (!state.day)         state.day = 1;
+  if (state.dayProgress == null) state.dayProgress = 0;
+
   refreshPurchasable(state);
   initWorkers(state);
+
+  initSunWidget();
 
   canvas = document.getElementById('map-canvas');
   ctx    = canvas.getContext('2d');
@@ -170,6 +188,63 @@ function init() {
 }
 
 
+// ── Achievements & bonuses ─────────────────────────────────────────────────────
+
+function checkAchievements() {
+  const state   = getState();
+  const xp      = state.xp;
+  const helpers = computeHelpers(state);
+
+  let newlyDone = false;
+  for (let i = 0; i < xp.current.length; i++) {
+    if (xp.completedIdx.includes(i)) continue;
+    const ach = ACHIEVEMENT_POOL.find(a => a.id === xp.current[i]);
+    if (!ach) continue;
+    const done = ach.check.length >= 2 ? ach.check(state, helpers) : ach.check(state);
+    if (done) {
+      xp.completedIdx.push(i);
+      showToast(`🏅 ${ach.label}: ${ach.desc}`);
+      newlyDone = true;
+    }
+  }
+
+  if (newlyDone) updateUI();
+
+  // All 3 completed → level up
+  if (xp.completedIdx.length >= 3) {
+    xp.level += 1;
+    // Record seen achievements for variety
+    xp.seen = [...(xp.seen ?? []), ...xp.current].slice(-12);
+    xp.current      = pickAchievements(3, new Set(xp.seen));
+    xp.completedIdx = [];
+
+    const choices = generateBonusChoices(xp.level);
+    saveGame();
+    openLevelUpModal(xp.level, choices, (choice) => {
+      applyBonus(choice);
+      saveGame();
+      updateUI();
+    });
+  }
+}
+
+function applyBonus(choice) {
+  const state = getState();
+  if (choice.type === 'grant') {
+    addResources({ [choice.applyData.resource]: choice.applyData.amount });
+  } else {
+    // Timed bonus
+    const bonus = {
+      type:      choice.type,
+      multiplier: choice.applyData.multiplier,
+      expiresAt:  Date.now() + choice.applyData.durationSec * 1000,
+    };
+    // Remove any existing bonus of same type (replace)
+    state.xp.bonusActive = (state.xp.bonusActive ?? []).filter(b => b.type !== choice.type);
+    state.xp.bonusActive.push(bonus);
+  }
+}
+
 const HEX_LABEL_CAP = {
   field:'Campo', quarry:'Cava', lake:'Lago', forest:'Bosco', pasture:'Pascolo',
   desert:'Deserto', mine:'Miniera', ricerca:'Ricerca', cucina:'Cucina',
@@ -206,16 +281,57 @@ function loop(timestamp) {
 
     updateWorkers(
       dt,
-      (_id, payload) => { addResources(payload); saveGame(); showToast(_formatGains(payload)); updateUI(); },
+      (_id, payload) => {
+        const st = getState();
+        addResources(payload);
+        if ((payload.mana ?? 0) > 0) {
+          if (!st.stats) st.stats = { totalCrafted:0, totalManaFound:0 };
+          st.stats.totalManaFound = (st.stats.totalManaFound ?? 0) + payload.mana;
+        }
+        saveGame(); showToast(_formatGains(payload)); updateUI();
+      },
       (_id, label)   => { saveGame(); showToast(`✅ Ricerca completata: ${label}!`); updateUI(); },
-      (_id, output)  => { saveGame(); showToast('✅ ' + _formatGains(output)); updateUI(); },
+      (_id, output)  => {
+        const st = getState();
+        if (!st.stats) st.stats = { totalCrafted:0, totalManaFound:0 };
+        st.stats.totalCrafted = (st.stats.totalCrafted ?? 0) + 1;
+        if ((output.mana ?? 0) > 0) st.stats.totalManaFound = (st.stats.totalManaFound ?? 0) + output.mana;
+        saveGame(); showToast('✅ ' + _formatGains(output)); updateUI();
+      },
       (msg)          => { saveGame(); showToast(msg); updateUI(); }
     );
+
+    // ── Day progress ──────────────────────────────────────────────────────────
+    {
+      const st = getState();
+      st.dayProgress = (st.dayProgress ?? 0) + dt / DAY_DURATION;
+      if (st.dayProgress >= 1) {
+        st.dayProgress -= 1;
+        const { tax, shortfall } = applyTax(st.day);
+        st.day = (st.day ?? 1) + 1;
+        const taxParts = Object.entries(tax).map(([r, n]) => `${n} ${RESOURCE_ICON[r] ?? r}`).join(', ');
+        let msg = `🌅 Giorno ${st.day}! Tasse: ${taxParts}`;
+        if (Object.keys(shortfall).length > 0) {
+          const sfParts = Object.entries(shortfall).map(([r, n]) => `${n} ${RESOURCE_ICON[r] ?? r}`).join(', ');
+          msg += ` (mancano: ${sfParts})`;
+        }
+        showToast(msg);
+        saveGame();
+        updateUI();
+      }
+      updateSunWidget(st.dayProgress, st.day ?? 1);
+    }
 
     uiTickAccum += dt;
     if (uiTickAccum >= 1) {
       uiTickAccum = 0;
+      // Prune expired bonuses
       const st = getState();
+      const now = Date.now();
+      if (st.xp?.bonusActive) {
+        st.xp.bonusActive = st.xp.bonusActive.filter(b => b.expiresAt > now);
+      }
+      checkAchievements();
       const hasActive = (st.research?.active?.length > 0) ||
         getWorkers().some(w => w.status === 'healing' || w.status === 'researching' || w.status === 'crafting');
       if (hasActive) updateUI();
