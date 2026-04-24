@@ -455,29 +455,47 @@ function _drawLabel(ctx, cx, cy, type) {
 
 function _drawUpgradeBadge(ctx, cx, cy, level) {
   if (!level || level <= 1) return;
-  const R  = DS * 0.20;
-  const bx = cx + DS * 0.52;
-  const by = cy - DS * 0.52;
+
+  // Position: bottom of hex, inscribed within the lower hex edge
+  // For a flat-topped hex, bottom vertex is at cy + DS.
+  // We place the star centred on the bottom vertex area.
+  const R  = DS * 0.18;           // star outer radius
+  const bx = cx;
+  const by = cy + DS * 0.82;      // just inside the bottom edge
 
   ctx.save();
-  // Gold circle background
-  const grad = ctx.createRadialGradient(bx - R*0.25, by - R*0.25, 0, bx, by, R);
-  grad.addColorStop(0, '#ffe57a');
-  grad.addColorStop(1, '#b8760a');
+  ctx.shadowColor = 'rgba(0,0,0,0.85)';
+  ctx.shadowBlur  = 5;
+
+  // Draw 5-pointed star
+  const points = 5;
+  const inner  = R * 0.42;
   ctx.beginPath();
-  ctx.arc(bx, by, R, 0, Math.PI * 2);
+  for (let i = 0; i < points * 2; i++) {
+    const angle = (i * Math.PI) / points - Math.PI / 2;
+    const r     = i % 2 === 0 ? R : inner;
+    const px    = bx + r * Math.cos(angle);
+    const py    = by + r * Math.sin(angle);
+    i === 0 ? ctx.moveTo(px, py) : ctx.lineTo(px, py);
+  }
+  ctx.closePath();
+
+  // Gold gradient fill
+  const grad = ctx.createRadialGradient(bx, by - R * 0.2, 0, bx, by, R);
+  grad.addColorStop(0, '#ffe566');
+  grad.addColorStop(1, '#c07800');
   ctx.fillStyle = grad;
-  ctx.shadowColor = 'rgba(0,0,0,0.8)';
-  ctx.shadowBlur  = 4;
   ctx.fill();
-  ctx.strokeStyle = '#fff';
-  ctx.lineWidth   = 1;
+
+  // Thin dark outline
+  ctx.shadowBlur  = 0;
+  ctx.strokeStyle = 'rgba(0,0,0,0.6)';
+  ctx.lineWidth   = 0.8;
   ctx.stroke();
 
-  // Level number
-  ctx.shadowBlur = 2;
-  ctx.fillStyle  = '#3a2000';
-  ctx.font       = `bold ${Math.round(R * 1.1)}px sans-serif`;
+  // Level number in centre
+  ctx.fillStyle    = '#3a1e00';
+  ctx.font         = `bold ${Math.round(R * 1.05)}px sans-serif`;
   ctx.textAlign    = 'center';
   ctx.textBaseline = 'middle';
   ctx.fillText(level, bx, by + 0.5);

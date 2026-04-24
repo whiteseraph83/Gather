@@ -173,6 +173,22 @@ export function computeHexYield(hex) {
   return base;
 }
 
+// ── Resource consumption per gather trip ──────────────────────────────────────
+// Called at dispatch time; random choices (lake/pasture) are resolved then.
+
+export function getHexConsume(hexType) {
+  switch (hexType) {
+    case 'forest':  return { legno:1, acqua:1, ferro:1 };
+    case 'quarry':  return { legno:1, acqua:1, ferro:1 };
+    case 'field':   return { acqua:1 };
+    case 'lake':    return Math.random() < 0.5 ? { grano:1 } : { carne:1 };
+    case 'pasture': return { acqua:1, ...(Math.random() < 0.5 ? { grano:1 } : { carne:1 }) };
+    case 'desert':  return { acqua:1 };
+    case 'mine':    return { legno:1, acqua:1 };
+    default:        return {};
+  }
+}
+
 // ── Build costs (complex hexes are expensive) ─────────────────────────────────
 
 export const BUILD_COST = {

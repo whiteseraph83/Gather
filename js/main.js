@@ -73,6 +73,7 @@ function init() {
   if (!state.stats)       state.stats = { totalCrafted: 0, totalManaFound: 0 };
   if (!state.day)         state.day = 1;
   if (state.dayProgress == null) state.dayProgress = 0;
+  if (!state.consumeLog)  state.consumeLog = [];
 
   refreshPurchasable(state);
   initWorkers(state);
@@ -298,7 +299,16 @@ function loop(timestamp) {
         if ((output.mana ?? 0) > 0) st.stats.totalManaFound = (st.stats.totalManaFound ?? 0) + output.mana;
         saveGame(); showToast('✅ ' + _formatGains(output)); updateUI();
       },
-      (msg)          => { saveGame(); showToast(msg); updateUI(); }
+      (msg)          => { saveGame(); showToast(msg); updateUI(); },
+      (res)          => {
+        // onConsume: log the consumption for the sidebar panel
+        const st = getState();
+        if (!st.consumeLog) st.consumeLog = [];
+        st.consumeLog.push({ at: Date.now(), res });
+        // Prune entries older than 30 seconds
+        const cutoff = Date.now() - 30_000;
+        st.consumeLog = st.consumeLog.filter(e => e.at >= cutoff);
+      }
     );
 
     // ── Day progress ──────────────────────────────────────────────────────────

@@ -1,6 +1,6 @@
 import { WORKER_SPEED, HEX_YIELD, RESEARCH_GEN_TIME,
          CRAFT_RECIPES, RESEARCH_RECIPES, MANA_DROP_RATE,
-         PERMIT_TYPES, computeHexYield } from './config.js';
+         PERMIT_TYPES, computeHexYield, getHexConsume } from './config.js';
 import { hexToPixel, hexKey } from './hex.js';
 import { getState } from './state.js';
 import { canAfford, deductResources, addResources } from './resources.js';
@@ -27,7 +27,8 @@ function _effectiveSpeed(worker) {
   let speed = WORKER_SPEED;
   if (unlocked.includes('velocita')) speed *= 1.5;
   if (worker.type === 'evolved')      speed *= 2;
-  if (worker.sick)                    speed *= 0.25; // sick workers are slow
+  if (worker.sick)                    speed *= 0.25;  // sick workers are slow
+  if (worker.resourcePenalty)         speed *= 0.5;   // missing consumption resources
   const now = Date.now();
   const sb  = (state.xp?.bonusActive ?? []).find(b => b.type === 'speed_worker' && b.expiresAt > now);
   if (sb) speed *= sb.multiplier;
@@ -55,9 +56,11 @@ export function initWorkers(state) {
       baseY:          base.y,
       targetX:        0,
       targetY:        0,
-      payload:        {},
-      targetHexKey:   null,
-      lastHexKey:     w.lastHexKey ?? null,
+      payload:         {},
+      consume:         {},
+      resourcePenalty: false,
+      targetHexKey:    null,
+      lastHexKey:      w.lastHexKey ?? null,
     });
   }
 }
@@ -92,6 +95,14 @@ export function dispatchWorker(q, r) {
 
   if (!STAY_TYPES.has(hex.type)) {
     worker.payload = computeHexYield(hex);
+    // Resolve consumption at dispatch (random for lake/pasture resolved now)
+    const consume = getHexConsume(hex.type);
+    worker.consume = consume;
+    // Check if player can afford the consumption — penalty if not
+    worker.resourcePenalty = Object.keys(consume).length > 0 && !canAfford(consume);
+  } else {
+    worker.consume         = {};
+    worker.resourcePenalty = false;
   }
 
   const sw = state.workers.find(w => w.id === worker.id);
@@ -140,7 +151,8 @@ export function addWorker() {
     id, status:'idle', type:'normal', auto:false, sick:false,
     healElapsed:0, researchAccum:0, craftElapsed:0,
     x:base.x, y:base.y, baseX:base.x, baseY:base.y,
-    targetX:0, targetY:0, payload:{}, targetHexKey:null, lastHexKey:null,
+    targetX:0, targetY:0, payload:{}, consume:{}, resourcePenalty:false,
+    targetHexKey:null, lastHexKey:null,
   });
   state.workers.push({
     id, status:'idle', targetHexKey:null, lastHexKey:null,
@@ -171,7 +183,7 @@ export function toggleWorkerAuto(workerId) {
 
 // ── Update loop ───────────────────────────────────────────────────────────────
 
-export function updateWorkers(dt, onComplete, onResearchComplete, onCraftComplete, onToast) {
+export function updateWorkers(dt, onComplete, onResearchComplete, onCraftComplete, onToast, onConsume) {
   const state = getState();
 
   // Advance all active research timers
@@ -314,6 +326,23 @@ export function updateWorkers(dt, onComplete, onResearchComplete, onCraftComplet
         if (Math.random() < MANA_DROP_RATE) payload.mana = (payload.mana ?? 0) + 1;
 
         if (Object.keys(payload).length > 0) onComplete(w.id, payload);
+
+        // Deduct resource consumption and report it
+        const consume = w.consume ?? {};
+        if (Object.keys(consume).length > 0) {
+          // Only deduct what we actually have (no debt)
+          const actualDeduct = {};
+          for (const [r, amt] of Object.entries(consume)) {
+            const have = state.resources?.[r] ?? 0;
+            if (have > 0) actualDeduct[r] = Math.min(amt, have);
+          }
+          if (Object.keys(actualDeduct).length > 0) {
+            deductResources(actualDeduct);
+            onConsume?.(actualDeduct);
+          }
+        }
+        w.consume         = {};
+        w.resourcePenalty = false;
 
         // Sickness roll: AUTO workers can fall ill after each gather if automazione is unlocked
         const automUnlocked = (state.research?.unlocked ?? []).includes('automazione');

@@ -379,6 +379,7 @@ export function updateUI() {
   }
 
   _renderAchievements(state);
+  _renderConsumptions(state);
 
   if (!document.getElementById('hex-modal').classList.contains('hidden')) {
     _populateHexModal(state);
@@ -433,6 +434,34 @@ function _renderAchievements(state) {
       bonBar.appendChild(badge);
     }
   }
+}
+
+function _renderConsumptions(state) {
+  const el = document.getElementById('consume-list');
+  if (!el) return;
+
+  const WINDOW_MS = 5_000; // show last 5 seconds
+  const log = state.consumeLog ?? [];
+  const cutoff = Date.now() - WINDOW_MS;
+  const recent = log.filter(e => e.at >= cutoff);
+
+  if (recent.length === 0) {
+    el.innerHTML = '<span class="consume-empty">Nessun consumo recente</span>';
+    return;
+  }
+
+  // Sum all recent entries
+  const totals = {};
+  for (const entry of recent) {
+    for (const [r, n] of Object.entries(entry.res)) {
+      totals[r] = (totals[r] ?? 0) + n;
+    }
+  }
+
+  el.innerHTML = Object.entries(totals)
+    .filter(([, n]) => n > 0)
+    .map(([r, n]) => `<span class="consume-item"><span class="consume-minus">-${n}</span> ${RESOURCE_ICON[r] ?? r} ${RESOURCE_LABEL[r] ?? r}</span>`)
+    .join('');
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────

@@ -42,6 +42,7 @@ export function createInitialState() {
     },
     day:         1,
     dayProgress: 0,   // 0.0–1.0 (fraction of current day elapsed)
+    consumeLog:  [],  // [{ at: timestamp_ms, res: { legno:1, acqua:1, … } }]
   };
 }
 
