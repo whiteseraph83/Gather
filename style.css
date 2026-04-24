@@ -930,6 +930,34 @@ button.action-btn.danger-action:hover:not(:disabled) {
 
 /* ── Research card ───────────────────────────────────────────────────────────── */
 
+.research-search-wrap {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--surface);
+  padding-bottom: 10px;
+}
+
+.research-search {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 7px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--border2);
+  background: var(--surface2);
+  color: var(--text);
+  font-size: 13px;
+  font-family: var(--font-serif);
+  outline: none;
+  transition: border-color 0.15s;
+}
+.research-search:focus {
+  border-color: var(--gold-dim);
+}
+.research-search::-webkit-search-cancel-button {
+  cursor: pointer;
+}
+
 .research-card {
   background: linear-gradient(135deg, #0d1228 0%, #080c1c 100%);
   border: 1px solid #1e2240;

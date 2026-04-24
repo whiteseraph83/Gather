@@ -57,6 +57,31 @@ function _populateResearchModal(state) {
   const actives  = state.research?.active   ?? [];
   const permits  = state.research?.permits  ?? {};
 
+  // ── Search bar ──────────────────────────────────────────────────────────────
+  const searchWrap = document.createElement('div');
+  searchWrap.className = 'research-search-wrap';
+
+  const datalist = document.createElement('datalist');
+  datalist.id = 'research-suggestions';
+  Object.values(RESEARCH_RECIPES).forEach(r => {
+    const opt = document.createElement('option');
+    opt.value = r.label;
+    datalist.appendChild(opt);
+  });
+
+  const searchInput = document.createElement('input');
+  searchInput.type        = 'search';
+  searchInput.placeholder = '🔍 Cerca ricerca…';
+  searchInput.className   = 'research-search';
+  searchInput.setAttribute('list', 'research-suggestions');
+  searchInput.setAttribute('autocomplete', 'off');
+
+  searchWrap.appendChild(datalist);
+  searchWrap.appendChild(searchInput);
+  container.appendChild(searchWrap);
+
+  const cards = [];
+
   for (const [id, recipe] of Object.entries(RESEARCH_RECIPES)) {
     const isPermit = PERMIT_TYPES.has(recipe.unlocks);
 
@@ -72,6 +97,7 @@ function _populateResearchModal(state) {
 
     const card = document.createElement('div');
     card.className = `research-card ${done ? 'completed' : ''}`;
+    card.dataset.label = recipe.label.toLowerCase();
 
     // Extra info for permit types
     let extraInfo = '';
@@ -109,8 +135,18 @@ function _populateResearchModal(state) {
       card.appendChild(btn);
     }
 
+    cards.push(card);
     container.appendChild(card);
   }
+
+  // Filter cards as user types
+  searchInput.addEventListener('input', () => {
+    const q = searchInput.value.toLowerCase().trim();
+    cards.forEach(c => {
+      c.style.display = (!q || c.dataset.label.includes(q)) ? '' : 'none';
+    });
+  });
+  searchInput.focus();
 }
 
 // ── Craft modal ───────────────────────────────────────────────────────────────
