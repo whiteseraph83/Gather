@@ -93,8 +93,28 @@ export function initWorkers(state) {
     };
 
     if (saved !== 'idle' && saved !== 'returning' && key) {
-      // Worker was active — resume going to that hex
-      _sendToHex(key);
+      const hex = state.hexes[key];
+      if (hex?.owned && STAY_TYPES.has(hex.type)) {
+        // Worker was at a station (researching / healing / crafting / going there).
+        // _sendToHex skips STAY_TYPES, so restore manually.
+        const pos = hexToPixel(hex.q, hex.r);
+        runtime.targetHexKey = key;
+        runtime.lastHexKey   = key;
+        if (saved === 'going') {
+          // Still walking — keep going status, target pixel already set
+          runtime.status  = 'going';
+          runtime.targetX = pos.x;
+          runtime.targetY = pos.y;
+        } else {
+          // Already at station — snap position and restore original status
+          runtime.x      = pos.x;
+          runtime.y      = pos.y;
+          runtime.status = saved; // 'researching' | 'healing' | 'crafting'
+        }
+      } else {
+        // Normal gather hex — use standard send
+        _sendToHex(key);
+      }
     } else if (runtime.auto && !runtime.sick && runtime.lastHexKey) {
       // Worker was idle/returning with AUTO ON — re-dispatch to last hex
       _sendToHex(runtime.lastHexKey);
