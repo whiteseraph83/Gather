@@ -566,7 +566,7 @@ function _panelGather(container, hex, selKey, state) {
     hint.className = 'hint';
     hint.textContent = 'Lavoratore già assegnato.';
     container.appendChild(hint);
-  } else if (getIdleCount() > 0) {
+  } else if (getWorkers().some(w => w.status === 'idle')) {
     container.appendChild(_makeBtn('👷 Invia lavoratore', 'action-btn', () => {
       _cb.onHarvest?.(q, r);
       closeHexModal();
@@ -733,7 +733,7 @@ function _panelCraftStation(container, hex, selKey, state) {
   const going     = workers.find(w => w.targetHexKey === selKey && (w.status === 'going' || w.status === 'returning'));
 
   if (!worker && !going) {
-    if (getIdleCount() > 0) {
+    if (getWorkers().some(w => w.status === 'idle')) {
       container.appendChild(_makeBtn('👷 Invia lavoratore', 'action-btn', () => {
         _cb.onHarvest?.(q, r);
         closeHexModal();
