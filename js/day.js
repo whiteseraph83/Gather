@@ -59,11 +59,13 @@ export function applyTax(day) {
 
 // ── SVG Sun widget ─────────────────────────────────────────────────────────────
 
-let _sunEl  = null;
+let _sunEl   = null;
+let _miniEl  = null;
 let _lastDay = -1; // track day changes to avoid re-rendering tax list every frame
 
 export function initSunWidget() {
-  _sunEl = document.getElementById('sun-widget');
+  _sunEl  = document.getElementById('sun-widget');
+  _miniEl = document.getElementById('sun-mini');
   if (!_sunEl) return;
 
   // 80×80 viewBox. Center at (40,40), orbit ring radius 32, sun radius 16.
@@ -124,36 +126,95 @@ export function initSunWidget() {
         fill="rgba(255,255,255,0.22)" transform="rotate(-30,35,35)"/>
     </svg>
   `;
+
+  // Mini sun (mobile overlay) — same SVG structure, different IDs
+  if (_miniEl) {
+    _miniEl.innerHTML = `
+      <svg id="sun-mini-svg" viewBox="0 0 80 80" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <radialGradient id="sgm" cx="38%" cy="32%" r="62%">
+            <stop offset="0%"   stop-color="#fff7b0"/>
+            <stop offset="55%"  stop-color="#ffcc22"/>
+            <stop offset="100%" stop-color="#e06800"/>
+          </radialGradient>
+          <radialGradient id="sgm-glow" cx="50%" cy="50%" r="50%">
+            <stop offset="0%"   stop-color="#ffdd44" stop-opacity="0.55"/>
+            <stop offset="100%" stop-color="#ffdd44" stop-opacity="0"/>
+          </radialGradient>
+          <filter id="sfm" x="-60%" y="-60%" width="220%" height="220%">
+            <feGaussianBlur stdDeviation="3.5" result="b"/>
+            <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+          </filter>
+        </defs>
+        <circle cx="40" cy="40" r="26" fill="url(#sgm-glow)"/>
+        <g id="sun-mini-rays" stroke="#ffd040" stroke-linecap="round" opacity="0.85">
+          <line x1="40" y1="7"  x2="40" y2="15"/>
+          <line x1="63" y1="17" x2="57.5" y2="22.5"/>
+          <line x1="73" y1="40" x2="65" y2="40"/>
+          <line x1="63" y1="63" x2="57.5" y2="57.5"/>
+          <line x1="40" y1="73" x2="40" y2="65"/>
+          <line x1="17" y1="63" x2="22.5" y2="57.5"/>
+          <line x1="7"  y1="40" x2="15" y2="40"/>
+          <line x1="17" y1="17" x2="22.5" y2="22.5"/>
+        </g>
+        <circle cx="40" cy="40" r="32"
+          fill="none" stroke="rgba(255,200,60,0.12)" stroke-width="4"/>
+        <path id="sun-mini-arc" fill="rgba(0,0,0,0)" d=""/>
+        <path id="sun-mini-progress" fill="none"
+          stroke="rgba(255,220,80,0.55)" stroke-width="4"
+          stroke-linecap="round" d=""/>
+        <circle id="sun-mini-dot" cx="40" cy="8" r="4"
+          fill="#ffe566" filter="url(#sfm)"/>
+        <circle cx="40" cy="40" r="16" fill="url(#sgm)" filter="url(#sfm)"/>
+        <ellipse cx="35" cy="35" rx="5" ry="3"
+          fill="rgba(255,255,255,0.22)" transform="rotate(-30,35,35)"/>
+      </svg>
+    `;
+  }
 }
 
 /** Called every frame with progress (0–1) and current day number. */
 export function updateSunWidget(progress, day) {
   if (!_sunEl) return;
 
-  const arc      = document.getElementById('sun-arc');
-  const progArc  = document.getElementById('sun-progress');
-  const dot      = document.getElementById('sun-dot');
-  const rays     = document.getElementById('sun-rays');
+  _applySunProgress(progress,
+    document.getElementById('sun-arc'),
+    document.getElementById('sun-progress'),
+    document.getElementById('sun-dot'),
+    document.getElementById('sun-rays'),
+  );
+
+  _applySunProgress(progress,
+    document.getElementById('sun-mini-arc'),
+    document.getElementById('sun-mini-progress'),
+    document.getElementById('sun-mini-dot'),
+    document.getElementById('sun-mini-rays'),
+  );
+
+  // Update day number and tax list (only when day changes)
+  if (day !== _lastDay) {
+    _lastDay = day;
+    _updateDayText(day);
+  }
+}
+
+function _applySunProgress(progress, arc, progArc, dot, rays) {
   if (!arc || !progArc || !dot) return;
 
-  const R   = 32;
-  const cx  = 40, cy = 40;
-  const startAngle = -Math.PI / 2; // 12 o'clock
+  const R          = 32;
+  const cx         = 40, cy = 40;
+  const startAngle = -Math.PI / 2;
   const endAngle   = startAngle + progress * Math.PI * 2;
 
-  // Dot position at leading edge
   const dx = cx + R * Math.cos(endAngle);
   const dy = cy + R * Math.sin(endAngle);
   dot.setAttribute('cx', dx.toFixed(2));
   dot.setAttribute('cy', dy.toFixed(2));
 
-  // Rays fade out as day gets later
   if (rays) rays.setAttribute('opacity', (0.85 - progress * 0.55).toFixed(2));
 
-  // Dark overlay arc (elapsed portion)
   if (progress <= 0.001) {
-    arc.setAttribute('d', '');
-    arc.setAttribute('fill', 'rgba(0,0,0,0)');
+    arc.setAttribute('d', ''); arc.setAttribute('fill', 'rgba(0,0,0,0)');
     progArc.setAttribute('d', '');
   } else if (progress >= 0.999) {
     arc.setAttribute('fill', 'rgba(0,0,0,0.38)');
@@ -164,19 +225,8 @@ export function updateSunWidget(progress, day) {
     const sx = cx + R * Math.cos(startAngle);
     const sy = cy + R * Math.sin(startAngle);
     arc.setAttribute('fill', 'rgba(0,0,0,0.32)');
-    arc.setAttribute('d',
-      `M${cx},${cy} L${sx.toFixed(2)},${sy.toFixed(2)} A${R},${R},0,${la},1,${dx.toFixed(2)},${dy.toFixed(2)} Z`
-    );
-    // Bright progress arc stroke (just the elapsed arc, no fill)
-    progArc.setAttribute('d',
-      `M${sx.toFixed(2)},${sy.toFixed(2)} A${R},${R},0,${la},1,${dx.toFixed(2)},${dy.toFixed(2)}`
-    );
-  }
-
-  // Update day number and tax list (only when day changes)
-  if (day !== _lastDay) {
-    _lastDay = day;
-    _updateDayText(day);
+    arc.setAttribute('d', `M${cx},${cy} L${sx.toFixed(2)},${sy.toFixed(2)} A${R},${R},0,${la},1,${dx.toFixed(2)},${dy.toFixed(2)} Z`);
+    progArc.setAttribute('d', `M${sx.toFixed(2)},${sy.toFixed(2)} A${R},${R},0,${la},1,${dx.toFixed(2)},${dy.toFixed(2)}`);
   }
 }
 
