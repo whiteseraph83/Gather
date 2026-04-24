@@ -404,7 +404,6 @@ export function updateUI(fullModal = true) {
   }
 
   _renderAchievements(state);
-  _renderConsumptions(state);
 
   const hexModalOpen      = !document.getElementById('hex-modal').classList.contains('hidden');
   const researchModalOpen = !document.getElementById('research-modal').classList.contains('hidden');

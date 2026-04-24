@@ -177,8 +177,7 @@ function init() {
     btn.addEventListener('click', (e) => { e.stopPropagation(); tip.classList.toggle('hidden'); });
     document.addEventListener('click', () => tip.classList.add('hidden'));
   }
-  _bindInfoBtn('day-info-btn',     'day-info-tooltip');
-  _bindInfoBtn('consume-info-btn', 'consume-info-tooltip');
+  _bindInfoBtn('day-info-btn', 'day-info-tooltip');
 
   // Mobile sidebar toggle
   const sidebarEl       = document.getElementById('sidebar');
