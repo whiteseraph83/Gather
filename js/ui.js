@@ -437,6 +437,38 @@ function _lightTickHexModal(state) {
     return;
   }
 
+  // Research hex: update bar and countdown in-place
+  if (hex.type === 'ricerca') {
+    const ra = (state.research?.active ?? []).find(a => a.hexKey === _hexModalKey);
+    const bar  = document.querySelector('[data-resbar]');
+    const time = document.querySelector('[data-restime]');
+    if (ra && bar && time) {
+      const total  = RESEARCH_RECIPES[ra.recipeId]?.time ?? 1;
+      const pct    = Math.min(100, Math.round((ra.elapsed / total) * 100));
+      const remSec = Math.max(0, Math.round(total - ra.elapsed));
+      bar.style.width  = pct + '%';
+      time.textContent = remSec + 's rimanenti';
+    }
+    return;
+  }
+
+  // Craft station: update bar and countdown in-place
+  if (['cucina','fabbro','falegnameria','caccia'].includes(hex.type)) {
+    const ca  = hex.craftActive;
+    const bar  = document.querySelector('[data-craftbar]');
+    const time = document.querySelector('[data-crafttime]');
+    if (ca && bar && time) {
+      const recipe = CRAFT_RECIPES[hex.type]?.[ca.recipeId];
+      if (recipe) {
+        const pct    = Math.min(100, Math.round((ca.elapsed / recipe.time) * 100));
+        const remSec = Math.max(0, Math.round(recipe.time - ca.elapsed));
+        bar.style.width  = pct + '%';
+        time.textContent = remSec + 's rimanenti';
+      }
+    }
+    return;
+  }
+
   if (hex.type !== 'starter') return; // only village has dynamic worker rows
 
   const STATUS_LABEL = {
@@ -746,8 +778,9 @@ function _panelRicerca(container, hex, selKey, state) {
     prog.className = 'research-active';
     prog.innerHTML =
       `<div class="research-name">🔬 ${recipe.label}</div>` +
-      `<div class="research-bar-wrap"><div class="research-bar" style="width:${pct}%"></div></div>` +
-      `<div class="research-time">${remSec}s rimanenti</div>`;
+      `<div class="research-bar-wrap"><div class="research-bar" data-resbar style="width:${pct}%"></div></div>` +
+      `<div class="research-time" data-restime>${remSec}s rimanenti</div>`;
+    prog.dataset.resTotal = recipe.time;
     container.appendChild(prog);
   } else {
     container.appendChild(_makeBtn('🔬 Apri Albero della Ricerca', 'action-btn',
@@ -799,8 +832,9 @@ function _panelCraftStation(container, hex, selKey, state) {
       prog.className = 'research-active';
       prog.innerHTML =
         `<div class="research-name">⚙ ${recipe.label}</div>` +
-        `<div class="research-bar-wrap"><div class="research-bar" style="width:${pct}%"></div></div>` +
-        `<div class="research-time">${remSec}s rimanenti</div>`;
+        `<div class="research-bar-wrap"><div class="research-bar" data-craftbar style="width:${pct}%"></div></div>` +
+        `<div class="research-time" data-crafttime>${remSec}s rimanenti</div>`;
+      prog.dataset.craftTotal = recipe.time;
       container.appendChild(prog);
     }
   } else {
