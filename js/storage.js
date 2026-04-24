@@ -4,10 +4,7 @@ import { getState } from './state.js';
 export function saveGame() {
   try {
     const state = getState();
-    // Normalise in-flight workers so they reload as idle
-    const snap = JSON.parse(JSON.stringify(state));
-    for (const w of snap.workers) { w.status = 'idle'; w.targetHexKey = null; }
-    localStorage.setItem(SAVE_KEY, JSON.stringify(snap));
+    localStorage.setItem(SAVE_KEY, JSON.stringify(state));
   } catch (e) {
     console.warn('Save failed:', e);
   }
