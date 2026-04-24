@@ -4,11 +4,11 @@
  * Each day lasts DAY_DURATION seconds (real-time).
  * At day end, taxes are deducted from the player's resources.
  * Taxes grow proportionally each day.
- * If the player can't pay a resource it simply bottoms out at 0 (no hard penalty here).
  */
 
 import { getState } from './state.js';
 import { deductResources } from './resources.js';
+import { RESOURCE_ICON, RESOURCE_LABEL } from './config.js';
 
 export const DAY_DURATION = 120; // seconds per in-game day
 
@@ -38,18 +38,18 @@ export function computeTax(day) {
 
 /** Apply end-of-day taxes. Returns { tax, shortfall } for display. */
 export function applyTax(day) {
-  const state    = getState();
-  const tax      = computeTax(day);
+  const state     = getState();
+  const tax       = computeTax(day);
   const shortfall = {};
-  const toPay   = {};
+  const toPay     = {};
 
   for (const [r, amount] of Object.entries(tax)) {
     const have = state.resources[r] ?? 0;
     if (have >= amount) {
       toPay[r] = amount;
     } else {
-      toPay[r]      = have;           // pay what we have
-      shortfall[r]  = amount - have;  // record gap (for toast)
+      toPay[r]     = have;
+      shortfall[r] = amount - have;
     }
   }
 
@@ -59,96 +59,139 @@ export function applyTax(day) {
 
 // ── SVG Sun widget ─────────────────────────────────────────────────────────────
 
-const SVG_NS = 'http://www.w3.org/2000/svg';
-let _sunEl = null;   // the #sun-widget element
+let _sunEl  = null;
+let _lastDay = -1; // track day changes to avoid re-rendering tax list every frame
 
 export function initSunWidget() {
   _sunEl = document.getElementById('sun-widget');
   if (!_sunEl) return;
-  // Build the SVG inside
+
+  // 80×80 viewBox. Center at (40,40), orbit ring radius 32, sun radius 16.
   _sunEl.innerHTML = `
-    <svg id="sun-svg" viewBox="0 0 60 60" xmlns="${SVG_NS}">
-      <!-- Passed arc (darkened) -->
-      <circle cx="30" cy="30" r="22"
-        fill="none" stroke="rgba(0,0,0,0)" stroke-width="0"/>
-      <path id="sun-passed-arc" fill="rgba(0,0,0,0.35)" d=""/>
-      <!-- Sun circle -->
-      <circle cx="30" cy="30" r="14"
-        fill="url(#sun-grad)" filter="url(#sun-glow)"/>
-      <!-- Hand -->
-      <line id="sun-hand" x1="30" y1="30" x2="30" y2="10"
-        stroke="#ffe066" stroke-width="2.5" stroke-linecap="round"/>
-      <!-- Day number -->
-      <text id="sun-day-text" x="30" y="34"
-        text-anchor="middle" font-size="8"
-        font-family="'Palatino Linotype',Georgia,serif"
-        font-weight="700" fill="#3a2000">1</text>
+    <svg id="sun-svg" viewBox="0 0 80 80" xmlns="http://www.w3.org/2000/svg">
       <defs>
-        <radialGradient id="sun-grad" cx="40%" cy="35%" r="60%">
-          <stop offset="0%" stop-color="#ffe57a"/>
-          <stop offset="100%" stop-color="#e08010"/>
+        <radialGradient id="sg" cx="38%" cy="32%" r="62%">
+          <stop offset="0%"   stop-color="#fff7b0"/>
+          <stop offset="55%"  stop-color="#ffcc22"/>
+          <stop offset="100%" stop-color="#e06800"/>
         </radialGradient>
-        <filter id="sun-glow" x="-40%" y="-40%" width="180%" height="180%">
-          <feGaussianBlur stdDeviation="3" result="blur"/>
-          <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+        <radialGradient id="sg-glow" cx="50%" cy="50%" r="50%">
+          <stop offset="0%"   stop-color="#ffdd44" stop-opacity="0.55"/>
+          <stop offset="100%" stop-color="#ffdd44" stop-opacity="0"/>
+        </radialGradient>
+        <filter id="sf" x="-60%" y="-60%" width="220%" height="220%">
+          <feGaussianBlur stdDeviation="3.5" result="b"/>
+          <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
         </filter>
       </defs>
+
+      <!-- Ambient glow behind sun -->
+      <circle cx="40" cy="40" r="26" fill="url(#sg-glow)"/>
+
+      <!-- 8 rays -->
+      <g id="sun-rays" stroke="#ffd040" stroke-linecap="round" opacity="0.85">
+        <line x1="40" y1="7"  x2="40" y2="15"/>
+        <line x1="63" y1="17" x2="57.5" y2="22.5"/>
+        <line x1="73" y1="40" x2="65" y2="40"/>
+        <line x1="63" y1="63" x2="57.5" y2="57.5"/>
+        <line x1="40" y1="73" x2="40" y2="65"/>
+        <line x1="17" y1="63" x2="22.5" y2="57.5"/>
+        <line x1="7"  y1="40" x2="15" y2="40"/>
+        <line x1="17" y1="17" x2="22.5" y2="22.5"/>
+      </g>
+
+      <!-- Orbit track ring -->
+      <circle cx="40" cy="40" r="32"
+        fill="none" stroke="rgba(255,200,60,0.12)" stroke-width="4"/>
+
+      <!-- Elapsed (darkened) arc -->
+      <path id="sun-arc" fill="rgba(0,0,0,0)" d=""/>
+
+      <!-- Orbit progress arc -->
+      <path id="sun-progress" fill="none"
+        stroke="rgba(255,220,80,0.55)" stroke-width="4"
+        stroke-linecap="round" d=""/>
+
+      <!-- Glowing dot at arc tip -->
+      <circle id="sun-dot" cx="40" cy="8" r="4"
+        fill="#ffe566" filter="url(#sf)"/>
+
+      <!-- Sun body -->
+      <circle cx="40" cy="40" r="16" fill="url(#sg)" filter="url(#sf)"/>
+
+      <!-- Cross-hatch shine -->
+      <ellipse cx="35" cy="35" rx="5" ry="3"
+        fill="rgba(255,255,255,0.22)" transform="rotate(-30,35,35)"/>
     </svg>
-    <div id="sun-tooltip" class="sun-tooltip hidden"></div>
   `;
-
-  _sunEl.addEventListener('mouseenter', _showTooltip);
-  _sunEl.addEventListener('mouseleave', () => {
-    const tt = document.getElementById('sun-tooltip');
-    if (tt) tt.classList.add('hidden');
-  });
-  _sunEl.addEventListener('click', _showTooltip);
 }
 
-function _showTooltip() {
-  const state = getState();
-  const day   = state.day ?? 1;
-  const tax   = computeTax(day);
-  const tt    = document.getElementById('sun-tooltip');
-  if (!tt) return;
-  const lines = Object.entries(tax).map(([r, n]) => `${n} ${r}`).join(', ');
-  tt.textContent = `Giorno ${day} — Tasse: ${lines}`;
-  tt.classList.remove('hidden');
-}
-
-/** Called every frame with dt (seconds). Updates SVG hand + arc. */
+/** Called every frame with progress (0–1) and current day number. */
 export function updateSunWidget(progress, day) {
   if (!_sunEl) return;
-  const hand = document.getElementById('sun-hand');
-  const arc  = document.getElementById('sun-passed-arc');
-  const txt  = document.getElementById('sun-day-text');
-  if (!hand || !arc || !txt) return;
 
-  const angle = progress * Math.PI * 2 - Math.PI / 2; // 0 → -π/2 (12 o'clock)
-  const R     = 22;
-  const cx    = 30, cy = 30;
+  const arc      = document.getElementById('sun-arc');
+  const progArc  = document.getElementById('sun-progress');
+  const dot      = document.getElementById('sun-dot');
+  const rays     = document.getElementById('sun-rays');
+  if (!arc || !progArc || !dot) return;
 
-  // Hand tip
-  const hx = cx + (R - 4) * Math.cos(angle);
-  const hy = cy + (R - 4) * Math.sin(angle);
-  hand.setAttribute('x2', hx.toFixed(2));
-  hand.setAttribute('y2', hy.toFixed(2));
+  const R   = 32;
+  const cx  = 40, cy = 40;
+  const startAngle = -Math.PI / 2; // 12 o'clock
+  const endAngle   = startAngle + progress * Math.PI * 2;
 
-  // Darkened passed arc (pie slice from top going clockwise)
-  if (progress <= 0) {
+  // Dot position at leading edge
+  const dx = cx + R * Math.cos(endAngle);
+  const dy = cy + R * Math.sin(endAngle);
+  dot.setAttribute('cx', dx.toFixed(2));
+  dot.setAttribute('cy', dy.toFixed(2));
+
+  // Rays fade out as day gets later
+  if (rays) rays.setAttribute('opacity', (0.85 - progress * 0.55).toFixed(2));
+
+  // Dark overlay arc (elapsed portion)
+  if (progress <= 0.001) {
     arc.setAttribute('d', '');
-  } else if (progress >= 1) {
-    arc.setAttribute('d', `M${cx},${cy} m0,-${R} A${R},${R},0,1,1,${cx - 0.001},${cy - R} Z`);
+    arc.setAttribute('fill', 'rgba(0,0,0,0)');
+    progArc.setAttribute('d', '');
+  } else if (progress >= 0.999) {
+    arc.setAttribute('fill', 'rgba(0,0,0,0.38)');
+    arc.setAttribute('d', `M${cx},${cy} m0,-${R} A${R},${R},0,1,1,${(cx-0.001).toFixed(3)},${(cy-R).toFixed(3)} Z`);
+    progArc.setAttribute('d', '');
   } else {
-    const startAngle = -Math.PI / 2;
-    const endAngle   = angle;
-    const largeArc   = progress > 0.5 ? 1 : 0;
+    const la = progress > 0.5 ? 1 : 0;
     const sx = cx + R * Math.cos(startAngle);
     const sy = cy + R * Math.sin(startAngle);
-    const ex = cx + R * Math.cos(endAngle);
-    const ey = cy + R * Math.sin(endAngle);
-    arc.setAttribute('d', `M${cx},${cy} L${sx.toFixed(2)},${sy.toFixed(2)} A${R},${R},0,${largeArc},1,${ex.toFixed(2)},${ey.toFixed(2)} Z`);
+    arc.setAttribute('fill', 'rgba(0,0,0,0.32)');
+    arc.setAttribute('d',
+      `M${cx},${cy} L${sx.toFixed(2)},${sy.toFixed(2)} A${R},${R},0,${la},1,${dx.toFixed(2)},${dy.toFixed(2)} Z`
+    );
+    // Bright progress arc stroke (just the elapsed arc, no fill)
+    progArc.setAttribute('d',
+      `M${sx.toFixed(2)},${sy.toFixed(2)} A${R},${R},0,${la},1,${dx.toFixed(2)},${dy.toFixed(2)}`
+    );
   }
 
-  txt.textContent = day;
+  // Update day number and tax list (only when day changes)
+  if (day !== _lastDay) {
+    _lastDay = day;
+    _updateDayText(day);
+  }
+}
+
+function _updateDayText(day) {
+  const numEl  = document.getElementById('day-number');
+  const taxEl  = document.getElementById('day-tax-list');
+  if (numEl) numEl.textContent = day;
+  if (!taxEl) return;
+
+  const tax = computeTax(day);
+  taxEl.innerHTML = Object.entries(tax)
+    .map(([r, n]) => {
+      const icon  = RESOURCE_ICON[r]  ?? '';
+      const label = RESOURCE_LABEL[r] ?? r;
+      return `<span class="day-tax-item"><span class="day-tax-amt">${n}</span>${icon} ${label}</span>`;
+    })
+    .join('');
 }
