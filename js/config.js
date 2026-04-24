@@ -178,13 +178,13 @@ export function computeHexYield(hex) {
 
 export function getHexConsume(hexType) {
   switch (hexType) {
-    case 'forest':  return { legno:1, acqua:1, ferro:1 };
-    case 'quarry':  return { legno:1, acqua:1, ferro:1 };
-    case 'field':   return { acqua:1 };
-    case 'lake':    return Math.random() < 0.5 ? { grano:1 } : { carne:1 };
-    case 'pasture': return { acqua:1, ...(Math.random() < 0.5 ? { grano:1 } : { carne:1 }) };
-    case 'desert':  return { acqua:1 };
-    case 'mine':    return { legno:1, acqua:1 };
+    case 'forest':  return { ferro:1 };                                        // ascia di ferro
+    case 'quarry':  return { ferro:1 };                                        // piccone di ferro
+    case 'field':   return { acqua:1 };                                        // irrigazione
+    case 'lake':    return Math.random() < 0.5 ? { grano:1 } : { carne:1 };   // esca
+    case 'pasture': return Math.random() < 0.5 ? { grano:1 } : { carne:1 };   // mangime
+    case 'desert':  return { acqua:1 };                                        // sete
+    case 'mine':    return { ferro:1 };                                        // utensile
     default:        return {};
   }
 }
