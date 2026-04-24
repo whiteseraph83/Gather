@@ -7,7 +7,7 @@ import { initWorkers, updateWorkers, dispatchWorker, getWorkers } from './worker
 import { addResources, canAfford, deductResources } from './resources.js';
 import { buildHex, upgradeHex, demolishHex, getPermitResearchCost } from './economy.js';
 import { render, invalidateBg } from './render.js';
-import { buildUI, updateUI, openHexModal, openLevelUpModal } from './ui.js';
+import { buildUI, updateUI, openHexModal, openBuildModal, openLevelUpModal } from './ui.js';
 import { initInput } from './input.js';
 import { hexToPixel } from './hex.js';
 import { generateBonusChoices } from './achievements.js';
@@ -227,7 +227,11 @@ function onAction(q, r) {
   const hex   = state.hexes[key];
   if (!hex) return;
   if (!hex.owned && !hex.purchasable) return;
-  openHexModal(key);
+  if (hex.purchasable && !hex.owned) {
+    openBuildModal(q, r);
+  } else {
+    openHexModal(key);
+  }
 }
 
 function _formatGains(payload, consume = {}) {
