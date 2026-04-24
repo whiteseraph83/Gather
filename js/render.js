@@ -672,13 +672,19 @@ function _drawWorkers(ctx) {
 
   for (const w of workers) {
     const busy = w.status !== 'idle';
-    const baseC = busy ? '#e67e22' : '#27ae60';
-    const rimC  = busy ? '#f39c12' : '#2ecc71';
+    const sick = w.sick;
+    const slow = w.resourcePenalty;
+    const auto = w.auto;
 
-    // Glow
+    // Base colour: sick → red, busy → orange, idle → green
+    const baseC = sick ? '#8b1a1a' : busy ? '#e67e22' : '#27ae60';
+    const rimC  = sick ? '#e84040' : busy ? '#f39c12' : '#2ecc71';
+    const glowC = sick ? 'rgba(200,30,30,0.85)' : busy ? 'rgba(230,126,34,0.8)' : 'rgba(46,204,113,0.7)';
+
+    // Glow (sick workers pulse red)
     ctx.save();
-    ctx.shadowColor = busy ? 'rgba(230,126,34,0.8)' : 'rgba(46,204,113,0.7)';
-    ctx.shadowBlur  = 10;
+    ctx.shadowColor = glowC;
+    ctx.shadowBlur  = sick ? 14 : 10;
     ctx.beginPath();
     ctx.arc(w.x, w.y, R, 0, Math.PI*2);
     ctx.fillStyle = baseC;
@@ -689,7 +695,7 @@ function _drawWorkers(ctx) {
     ctx.beginPath();
     ctx.arc(w.x, w.y, R, 0, Math.PI*2);
     ctx.strokeStyle = rimC;
-    ctx.lineWidth   = 1.5;
+    ctx.lineWidth   = sick ? 2 : 1.5;
     ctx.stroke();
 
     // Inner shine
@@ -704,7 +710,7 @@ function _drawWorkers(ctx) {
     ctx.fillStyle = shine;
     ctx.fill();
 
-    // Number
+    // Letter label
     ctx.save();
     ctx.shadowColor  = 'rgba(0,0,0,0.9)';
     ctx.shadowBlur   = 3;
@@ -714,6 +720,34 @@ function _drawWorkers(ctx) {
     ctx.textBaseline = 'middle';
     ctx.fillText(workerLabel(w.id), w.x, w.y);
     ctx.restore();
+
+    // ── Status badges (small circles with icon at edges) ──────────────────
+    const BR = R * 0.42;  // badge radius
+    const d  = R * 0.72;  // distance from centre to badge centre
+
+    function _badge(ox, oy, fill, rim, label) {
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(w.x + ox, w.y + oy, BR, 0, Math.PI*2);
+      ctx.fillStyle   = fill;
+      ctx.shadowColor = 'rgba(0,0,0,0.7)';
+      ctx.shadowBlur  = 4;
+      ctx.fill();
+      ctx.strokeStyle = rim;
+      ctx.lineWidth   = 1;
+      ctx.stroke();
+      ctx.shadowBlur  = 0;
+      ctx.fillStyle   = '#fff';
+      ctx.font        = `bold ${Math.round(BR * 1.1)}px sans-serif`;
+      ctx.textAlign   = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(label, w.x + ox, w.y + oy + 0.5);
+      ctx.restore();
+    }
+
+    if (sick)  _badge( d, -d, '#c0392b', '#ff6b6b', '🤒');   // top-right: sick
+    if (slow)  _badge(-d, -d, '#1a6691', '#5bc0de', '🐌');   // top-left:  slow
+    if (auto)  _badge( d,  d, '#2d6a2d', '#6fcf6f', 'A');    // bottom-right: auto
   }
 }
 

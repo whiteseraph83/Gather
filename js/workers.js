@@ -40,6 +40,11 @@ function _effectiveSpeed(worker) {
 export function initWorkers(state) {
   _workers.length = 0;
   const base = hexToPixel(0, 0);
+
+  // Safety: if all saved workers are sick, cure them all (they rested while offline)
+  if (state.workers.length > 0 && state.workers.every(w => w.sick)) {
+    for (const w of state.workers) { w.sick = false; }
+  }
   for (const w of state.workers) {
     _workers.push({
       id:             w.id,
@@ -345,8 +350,11 @@ export function updateWorkers(dt, onComplete, onResearchComplete, onCraftComplet
         w.resourcePenalty = false;
 
         // Sickness roll: AUTO workers can fall ill after each gather if automazione is unlocked
+        // Guard: never make ALL workers sick (at least 1 must stay healthy)
         const automUnlocked = (state.research?.unlocked ?? []).includes('automazione');
-        if (w.auto && automUnlocked && !w.sick && Object.keys(payload).length > 0) {
+        const sickCount = _workers.filter(ww => ww.sick).length;
+        if (w.auto && automUnlocked && !w.sick && Object.keys(payload).length > 0
+            && sickCount < _workers.length - 1) {
           if (Math.random() < SICK_CHANCE) {
             w.sick = true;
             const sw2 = state.workers.find(s => s.id === w.id);
