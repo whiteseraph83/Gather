@@ -156,7 +156,17 @@ export function dispatchWorker(q, r) {
 export function recallWorker(workerId) {
   const state  = getState();
   const worker = _workers.find(w => w.id === workerId);
-  if (!worker || worker.status === 'idle' || worker.status === 'returning') return;
+  if (!worker || worker.status === 'idle') return;
+
+  // Worker already returning: just disable AUTO so they won't re-dispatch on arrival
+  if (worker.status === 'returning') {
+    if (worker.auto) {
+      worker.auto = false;
+      const sw = state.workers.find(w => w.id === workerId);
+      if (sw) sw.auto = false;
+    }
+    return;
+  }
 
   if (worker.status === 'crafting') {
     const hex = state.hexes[worker.targetHexKey];
@@ -171,7 +181,7 @@ export function recallWorker(workerId) {
   if (worker.auto) {
     worker.auto = false;
     const sw2 = state.workers.find(w => w.id === workerId);
-    if (sw2) { sw2.auto = false; }
+    if (sw2) sw2.auto = false;
   }
   const sw = state.workers.find(w => w.id === workerId);
   if (sw) { sw.status = 'returning'; sw.targetHexKey = null; }
