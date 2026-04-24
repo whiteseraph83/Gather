@@ -365,21 +365,22 @@ export function updateWorkers(dt, onComplete, onResearchComplete, onCraftComplet
         // Rare mana drop
         if (Math.random() < MANA_DROP_RATE) payload.mana = (payload.mana ?? 0) + 1;
 
-        if (Object.keys(payload).length > 0) onComplete(w.id, payload);
-
-        // Deduct resource consumption and report it
+        // Compute consumption before firing onComplete so both can go in one toast
         const consume = w.consume ?? {};
+        let actualDeduct = {};
         if (Object.keys(consume).length > 0) {
-          // Only deduct what we actually have (no debt)
-          const actualDeduct = {};
           for (const [r, amt] of Object.entries(consume)) {
             const have = state.resources?.[r] ?? 0;
             if (have > 0) actualDeduct[r] = Math.min(amt, have);
           }
-          if (Object.keys(actualDeduct).length > 0) {
-            deductResources(actualDeduct);
-            onConsume?.(actualDeduct);
-          }
+        }
+
+        if (Object.keys(payload).length > 0) onComplete(w.id, payload, actualDeduct);
+
+        // Apply consumption
+        if (Object.keys(actualDeduct).length > 0) {
+          deductResources(actualDeduct);
+          onConsume?.(actualDeduct);
         }
         w.consume         = {};
         w.resourcePenalty = false;

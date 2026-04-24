@@ -268,11 +268,14 @@ function onAction(q, r) {
   openHexModal(key);
 }
 
-function _formatGains(payload) {
-  const parts = Object.entries(payload)
+function _formatGains(payload, consume = {}) {
+  const gains = Object.entries(payload)
     .filter(([, n]) => n > 0)
     .map(([r, n]) => `${RESOURCE_ICON[r] ?? r} +${n}`);
-  return parts.length ? parts.join('   ') : '📦';
+  const costs = Object.entries(consume)
+    .filter(([, n]) => n > 0)
+    .map(([r, n]) => `${RESOURCE_ICON[r] ?? r} -${n}`);
+  return [...gains, ...costs].join('  ') || '📦';
 }
 
 // ── Game loop ─────────────────────────────────────────────────────────────────
@@ -287,14 +290,14 @@ function loop(timestamp) {
 
     updateWorkers(
       dt,
-      (_id, payload) => {
+      (_id, payload, consume) => {
         const st = getState();
         addResources(payload);
         if ((payload.mana ?? 0) > 0) {
           if (!st.stats) st.stats = { totalCrafted:0, totalManaFound:0 };
           st.stats.totalManaFound = (st.stats.totalManaFound ?? 0) + payload.mana;
         }
-        saveGame(); showToast(_formatGains(payload)); updateUI(false);
+        saveGame(); showToast(_formatGains(payload, consume)); updateUI(false);
       },
       (_id, label)   => { saveGame(); showToast(`✅ Ricerca completata: ${label}!`); updateUI(false); },
       (_id, output)  => {
