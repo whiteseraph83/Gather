@@ -5,7 +5,7 @@ import {
   PERMIT_TYPES, HEX_UPGRADES, computeHexYield, workerLabel, getHexConsume,
 } from './config.js';
 import { getState } from './state.js';
-import { getWorkers, getIdleCount, recallWorker, evolveWorker, toggleWorkerAuto } from './workers.js';
+import { getWorkers, getIdleCount, recallWorker, evolveWorker, toggleWorkerAuto, sickHealTime } from './workers.js';
 import { hexDistance, keyToHex, hexKey } from './hex.js';
 import { getSelectedHex } from './render.js';
 import { canAfford, getResource } from './resources.js';
@@ -424,7 +424,20 @@ export function updateUI(fullModal = true) {
 function _lightTickHexModal(state) {
   if (!_hexModalKey) return;
   const hex = state.hexes[_hexModalKey];
-  if (!hex || hex.type !== 'starter') return; // only village has dynamic worker rows
+  if (!hex) return;
+
+  // Hospital: update heal progress bars in-place
+  if (hex.type === 'ospedale') {
+    const healTotal = sickHealTime(state);
+    for (const w of getWorkers()) {
+      if (w.status !== 'healing') continue;
+      const bar = document.querySelector(`[data-healbar="${w.id}"]`);
+      if (bar) bar.style.width = Math.min(100, Math.round(((w.healElapsed ?? 0) / healTotal) * 100)) + '%';
+    }
+    return;
+  }
+
+  if (hex.type !== 'starter') return; // only village has dynamic worker rows
 
   const STATUS_LABEL = {
     idle:'In attesa', going:'In viaggio', returning:'In rientro',
@@ -812,13 +825,15 @@ function _panelOspedale(container, hex, selKey, state) {
   const sickIdle = workers.filter(w => w.sick && w.status === 'idle');
 
   if (healing.length > 0) {
+    const healTotal = sickHealTime(state);
     for (const w of healing) {
-      const pct = Math.min(100, Math.round(((w.healElapsed ?? 0) / 30) * 100));
+      const pct = Math.min(100, Math.round(((w.healElapsed ?? 0) / healTotal) * 100));
       const div = document.createElement('div');
       div.className = 'research-active';
+      div.dataset.healId = w.id;
       div.innerHTML =
         `<div class="research-name">🤒 Lavoratore ${workerLabel(w.id)} in cura</div>` +
-        `<div class="research-bar-wrap"><div class="research-bar" style="width:${pct}%"></div></div>`;
+        `<div class="research-bar-wrap"><div class="research-bar" data-healbar="${w.id}" style="width:${pct}%"></div></div>`;
       container.appendChild(div);
     }
   }
