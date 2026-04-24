@@ -366,7 +366,7 @@ export function updateWorkers(dt, onComplete, onResearchComplete, onCraftComplet
       } else {
         // Arrived back at base
         const payload = { ...w.payload };
-        w.status = 'idle'; w.payload = {};
+        w.status = 'idle'; w.payload = {}; w.targetHexKey = null;
 
         const sw = state.workers.find(s => s.id === w.id);
         if (sw) { sw.status = 'idle'; sw.targetHexKey = null; }
