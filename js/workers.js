@@ -167,6 +167,12 @@ export function recallWorker(workerId) {
   }
 
   worker.status = 'returning';
+  // If worker had AUTO on, turn it off — a manual recall means "stay home"
+  if (worker.auto) {
+    worker.auto = false;
+    const sw2 = state.workers.find(w => w.id === workerId);
+    if (sw2) { sw2.auto = false; }
+  }
   const sw = state.workers.find(w => w.id === workerId);
   if (sw) { sw.status = 'returning'; sw.targetHexKey = null; }
 }
