@@ -1190,6 +1190,17 @@ button.action-btn.danger-action:hover:not(:disabled) {
   font-style: italic;
 }
 
+/* ── Cost entry spans (build / research / craft modals) ───────────────────── */
+.cost-entry {
+  display: inline-block;
+}
+.cost-ok {
+  opacity: 1;
+}
+.cost-missing {
+  opacity: 0.35;
+}
+
 /* ── Achievement panel ────────────────────────────────────────────────────── */
 
 .ach-panel h2 {

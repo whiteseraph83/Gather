@@ -9,7 +9,7 @@ import { getState } from './state.js';
 import { getWorkers, getIdleCount, recallWorker, evolveWorker, toggleWorkerAuto } from './workers.js';
 import { hexDistance, keyToHex, hexKey } from './hex.js';
 import { getSelectedHex } from './render.js';
-import { canAfford } from './resources.js';
+import { canAfford, getResource } from './resources.js';
 import { getAvailableBuildTypes, buildHex, getScaledBuildCost,
          getPermitResearchCost, upgradeHex, demolishHex } from './economy.js';
 
@@ -69,7 +69,7 @@ function _populateResearchModal(state) {
     // For permits: use scaled cost
     const actualCost = isPermit ? getPermitResearchCost(id, state) : recipe.cost;
     const affordable = !done && !inProgress && !hexActive && canAfford(actualCost);
-    const costStr    = Object.entries(actualCost).map(([r, n]) => `${n}${RESOURCE_ICON[r]}`).join(' ');
+    const costStr    = _costHtml(actualCost);
 
     const card = document.createElement('div');
     card.className = `research-card ${done ? 'completed' : ''}`;
@@ -146,7 +146,7 @@ function _populateCraftModal(state) {
 
     const outStr  = Object.entries(recipe.output).map(([r, n]) => `${n}${RESOURCE_ICON[r]}`).join(' ');
     const costStr = hasInputs
-      ? Object.entries(recipe.inputs).map(([r, n]) => `${n}${RESOURCE_ICON[r]}`).join(' ') + ' → ' + outStr
+      ? _costHtml(recipe.inputs) + ' → ' + outStr
       : '→ ' + outStr;
 
     card.innerHTML =
@@ -196,7 +196,7 @@ function _populateBuildModal() {
   for (const type of types) {
     const cost       = getScaledBuildCost(type, state);
     const affordable = canAfford(cost);
-    const costStr    = Object.entries(cost).map(([r, n]) => `${n}${RESOURCE_ICON[r]}`).join(' ');
+    const costStr    = _costHtml(cost);
 
     // Show how many permits are pending for permit types
     let permitBadge = '';
@@ -507,26 +507,23 @@ function _renderConsumptions(state) {
   const el = document.getElementById('consume-list');
   if (!el) return;
 
-  const WINDOW_MS = 5_000; // show last 5 seconds
-  const log = state.consumeLog ?? [];
-  const cutoff = Date.now() - WINDOW_MS;
-  const recent = log.filter(e => e.at >= cutoff);
-
-  if (recent.length === 0) {
-    el.innerHTML = '<span class="consume-empty">Nessun consumo recente</span>';
-    return;
-  }
-
-  // Sum all recent entries
-  const totals = {};
-  for (const entry of recent) {
-    for (const [r, n] of Object.entries(entry.res)) {
-      totals[r] = (totals[r] ?? 0) + n;
+  // Show the pending consumption of all workers currently on a trip (going or crafting)
+  const pending = {};
+  for (const w of getWorkers()) {
+    if (w.status === 'idle' || w.status === 'returning') continue;
+    if (!w.consume) continue;
+    for (const [r, n] of Object.entries(w.consume)) {
+      pending[r] = (pending[r] ?? 0) + n;
     }
   }
 
-  el.innerHTML = Object.entries(totals)
-    .filter(([, n]) => n > 0)
+  const entries = Object.entries(pending).filter(([, n]) => n > 0);
+  if (entries.length === 0) {
+    el.innerHTML = '<span class="consume-empty">Nessun consumo in corso</span>';
+    return;
+  }
+
+  el.innerHTML = entries
     .map(([r, n]) => `<span class="consume-item"><span class="consume-minus">-${n}</span> ${RESOURCE_ICON[r] ?? r} ${RESOURCE_LABEL[r] ?? r}</span>`)
     .join('');
 }
@@ -544,6 +541,16 @@ function _makeBtn(text, cls, onClick, disabled = false) {
 
 function _costStr(cost) {
   return Object.entries(cost).map(([r, n]) => `${n}${RESOURCE_ICON[r]}`).join(' ');
+}
+
+/** Renders cost entries as HTML spans — dim (low-opacity) when not enough, bright when sufficient. */
+function _costHtml(cost) {
+  return Object.entries(cost)
+    .map(([r, n]) => {
+      const have = getResource(r) >= n;
+      return `<span class="cost-entry ${have ? 'cost-ok' : 'cost-missing'}">${n}${RESOURCE_ICON[r]}</span>`;
+    })
+    .join(' ');
 }
 
 // ── Owned hex panels ──────────────────────────────────────────────────────────
@@ -581,11 +588,16 @@ function _panelGather(container, hex, selKey, state) {
     hint.className = 'hint';
     hint.textContent = 'Lavoratore già assegnato.';
     container.appendChild(hint);
-  } else {
+  } else if (getIdleCount() > 0) {
     container.appendChild(_makeBtn('👷 Invia lavoratore', 'action-btn', () => {
       _cb.onHarvest?.(q, r);
       closeHexModal();
     }));
+  } else {
+    const hint = document.createElement('div');
+    hint.className = 'hint';
+    hint.textContent = 'Nessun lavoratore disponibile.';
+    container.appendChild(hint);
   }
 
   // Upgrade section
@@ -742,10 +754,17 @@ function _panelCraftStation(container, hex, selKey, state) {
   const going     = workers.find(w => w.targetHexKey === selKey && (w.status === 'going' || w.status === 'returning'));
 
   if (!worker && !going) {
-    container.appendChild(_makeBtn('👷 Invia lavoratore', 'action-btn', () => {
-      _cb.onHarvest?.(q, r);
-      closeHexModal();
-    }));
+    if (getIdleCount() > 0) {
+      container.appendChild(_makeBtn('👷 Invia lavoratore', 'action-btn', () => {
+        _cb.onHarvest?.(q, r);
+        closeHexModal();
+      }));
+    } else {
+      const hint = document.createElement('div');
+      hint.className = 'hint';
+      hint.textContent = 'Nessun lavoratore disponibile.';
+      container.appendChild(hint);
+    }
     return;
   }
 

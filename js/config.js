@@ -8,10 +8,10 @@ export const AUTOSAVE_MS       = 30_000;
 export const WORKER_SPEED      = 95;
 export const SAVE_KEY          = 'hexdomain_save';
 export const SAVE_VERSION      = 5;
-export const GAME_VERSION      = '1.3';
+export const GAME_VERSION      = '1.5';
 export const HEAL_TIME         = 30;
 export const RESEARCH_GEN_TIME = 5;
-export const MANA_DROP_RATE    = 0.005; // ~0.5% per gather/craft completion
+export const MANA_DROP_RATE    = 0.012; // ~1.2% per gather/craft completion
 
 // ── Permit types (each research grants ONE build permit, consumed on build) ───
 
