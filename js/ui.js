@@ -4,7 +4,6 @@ import {
   RESEARCH_RECIPES, CRAFT_RECIPES,
   PERMIT_TYPES, HEX_UPGRADES, computeHexYield, workerLabel,
 } from './config.js';
-import { ACHIEVEMENT_POOL } from './achievements.js';
 import { getState } from './state.js';
 import { getWorkers, getIdleCount, recallWorker, evolveWorker, toggleWorkerAuto } from './workers.js';
 import { hexDistance, keyToHex, hexKey } from './hex.js';
@@ -403,7 +402,6 @@ export function updateUI(fullModal = true) {
     el.className   = 'res-amount' + (val > 0 ? ' nonzero' : '');
   }
 
-  _renderAchievements(state);
 
   const hexModalOpen      = !document.getElementById('hex-modal').classList.contains('hidden');
   const researchModalOpen = !document.getElementById('research-modal').classList.contains('hidden');
@@ -458,49 +456,6 @@ function _lightTickHexModal(state) {
   }
 }
 
-// ── Achievements sidebar ──────────────────────────────────────────────────────
-
-function _renderAchievements(state) {
-  const lvEl   = document.getElementById('xp-level');
-  const list   = document.getElementById('achievement-list');
-  const bonBar = document.getElementById('bonus-bar');
-  if (!lvEl || !list) return;
-
-  const xp = state.xp ?? {};
-  lvEl.textContent = `Lv ${xp.level ?? 1}`;
-
-  // Achievement rows
-  list.innerHTML = '';
-  const current = xp.current ?? [];
-  const done    = new Set(xp.completedIdx ?? []);
-
-  for (let i = 0; i < current.length; i++) {
-    const ach     = ACHIEVEMENT_POOL.find(a => a.id === current[i]);
-    if (!ach) continue;
-    const isDone  = done.has(i);
-    const row     = document.createElement('div');
-    row.className = `ach-row${isDone ? ' done' : ''}`;
-    row.innerHTML =
-      `<span class="ach-check">${isDone ? '✅' : '⭕'}</span>` +
-      `<span class="ach-text"><span class="ach-label">${ach.label}</span><span class="ach-desc">${ach.desc}</span></span>`;
-    list.appendChild(row);
-  }
-
-  // Active bonus badges
-  if (bonBar) {
-    bonBar.innerHTML = '';
-    const now = Date.now();
-    for (const b of (xp.bonusActive ?? [])) {
-      if (b.expiresAt <= now) continue;
-      const remSec = Math.ceil((b.expiresAt - now) / 1000);
-      const badge  = document.createElement('span');
-      badge.className = 'bonus-badge';
-      const emoji = b.type === 'speed_worker' ? '⚡' : b.type === 'speed_research' ? '🔬' : '📦';
-      badge.textContent = `${emoji} ×${b.multiplier} ${remSec}s`;
-      bonBar.appendChild(badge);
-    }
-  }
-}
 
 function _renderConsumptions(state) {
   const el = document.getElementById('consume-list');

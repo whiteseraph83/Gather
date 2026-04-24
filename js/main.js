@@ -10,7 +10,7 @@ import { render, invalidateBg } from './render.js';
 import { buildUI, updateUI, openHexModal, openLevelUpModal } from './ui.js';
 import { initInput } from './input.js';
 import { hexToPixel } from './hex.js';
-import { ACHIEVEMENT_POOL, computeHelpers, pickAchievements, generateBonusChoices } from './achievements.js';
+import { generateBonusChoices } from './achievements.js';
 import { DAY_DURATION, applyTax, initSunWidget, updateSunWidget } from './day.js';
 
 const SIDEBAR_W = 280;
@@ -60,17 +60,10 @@ function init() {
     if (w.lastHexKey == null) w.lastHexKey = null;
   }
 
-  // ── XP / achievements migration ───────────────────────────────────────────
-  if (!state.xp) {
-    state.xp = { level:1, current:[], completedIdx:[], bonusActive:[], seen:[] };
-  }
-  if (!state.xp.bonusActive)  state.xp.bonusActive  = [];
-  if (!state.xp.seen)         state.xp.seen         = [];
-  if (!state.xp.current || state.xp.current.length === 0) {
-    state.xp.current      = pickAchievements(3, new Set(state.xp.seen ?? []));
-    state.xp.completedIdx = [];
-  }
-  if (!state.stats)       state.stats = { totalCrafted: 0, totalManaFound: 0 };
+  // ── Bonus / XP migration ─────────────────────────────────────────────────
+  if (!state.xp)               state.xp = { bonusActive: [] };
+  if (!state.xp.bonusActive)   state.xp.bonusActive = [];
+  if (!state.stats)             state.stats = { totalCrafted: 0, totalManaFound: 0 };
   if (!state.day)         state.day = 1;
   if (state.dayProgress == null) state.dayProgress = 0;
   if (!state.consumeLog)  state.consumeLog = [];
@@ -201,37 +194,7 @@ function init() {
 }
 
 
-// ── Achievements & bonuses ─────────────────────────────────────────────────────
-
-function checkAchievements() {
-  const state   = getState();
-  const xp      = state.xp;
-  const helpers = computeHelpers(state);
-
-  let newlyDone = false;
-  for (let i = 0; i < xp.current.length; i++) {
-    if (xp.completedIdx.includes(i)) continue;
-    const ach = ACHIEVEMENT_POOL.find(a => a.id === xp.current[i]);
-    if (!ach) continue;
-    const done = ach.check.length >= 2 ? ach.check(state, helpers) : ach.check(state);
-    if (done) {
-      xp.completedIdx.push(i);
-      showToast(`🏅 ${ach.label}: ${ach.desc}`);
-      newlyDone = true;
-    }
-  }
-
-  if (newlyDone) {
-    // Rotate achievements when all 3 are done (no level-up, just variety)
-    if (xp.completedIdx.length >= 3) {
-      xp.seen = [...(xp.seen ?? []), ...xp.current].slice(-12);
-      xp.current      = pickAchievements(3, new Set(xp.seen));
-      xp.completedIdx = [];
-      saveGame();
-    }
-    updateUI();
-  }
-}
+// ── Bonuses ────────────────────────────────────────────────────────────────────
 
 function applyBonus(choice) {
   const state = getState();
@@ -361,7 +324,6 @@ function loop(timestamp) {
       if (st.xp?.bonusActive) {
         st.xp.bonusActive = st.xp.bonusActive.filter(b => b.expiresAt > now);
       }
-      checkAchievements();
       const hasActive = (st.research?.active?.length > 0) ||
         getWorkers().some(w => w.status === 'healing' || w.status === 'researching' || w.status === 'crafting');
       if (hasActive) updateUI(false); // lightweight — no modal rebuild
