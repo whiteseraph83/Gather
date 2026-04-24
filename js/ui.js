@@ -444,14 +444,14 @@ function _lightTickHexModal(state) {
     if (rb) {
       const returning = w.status === 'returning';
       rb.disabled     = returning;
-      rb.textContent  = returning ? '↩…' : '↩';
+      rb.textContent  = returning ? '↩…' : '↩ Richiama';
       rb.title        = returning ? 'Già in rientro' : 'Richiama al villaggio';
     }
     // Auto button label
     const ab = document.querySelector(`button[data-action="auto"][data-worker-id="${w.id}"]`);
     if (ab) {
       ab.textContent = w.auto ? '🔄 Auto ON' : '🔄 Auto';
-      ab.className   = `worker-auto-btn ${w.auto ? 'active' : ''}`;
+      ab.className   = `worker-action-btn ${w.auto ? 'active' : ''}`;
     }
     // Status badges
     const bb = document.querySelector(`[data-wbadges="${w.id}"]`);
@@ -616,7 +616,7 @@ function _panelVillaggio(container, state) {
     const div = document.createElement('div');
     div.className = 'worker-row';
 
-    let icon = w.sick ? '🤒' : w.type === 'evolved' ? '⭐' : '👷';
+    const icon = w.sick ? '🤒' : w.type === 'evolved' ? '⭐' : '👷';
 
     const statusText = {
       idle:        'In attesa',
@@ -627,51 +627,64 @@ function _panelVillaggio(container, state) {
       crafting:    'Al lavoro',
     }[w.status] ?? w.status;
 
-    // Show destination hex if away
     let dest = '';
     if (w.targetHexKey && state.hexes[w.targetHexKey]) {
       dest = ` → ${HEX_LABEL[state.hexes[w.targetHexKey].type] ?? '?'}`;
     }
 
-    div.innerHTML =
+    // ── Top row: icon · name · [actions] ──────────────────────────────────
+    const topRow = document.createElement('div');
+    topRow.className = 'worker-row-top';
+    topRow.innerHTML =
       `<span class="worker-icon">${icon}</span>` +
-      `<span class="worker-label">Lavoratore ${workerLabel(w.id)}</span>` +
-      `<span class="worker-status" data-wstatus="${w.id}">${statusText}${dest}</span>` +
-      `<span class="worker-badges" data-wbadges="${w.id}">${_workerBadgesHtml(w)}</span>`;
+      `<span class="worker-label">Lavoratore ${workerLabel(w.id)}</span>`;
 
-    // Recall button — always shown when worker is not idle.
-    // Disabled (greyed) while already returning so the player can see the state.
+    const actions = document.createElement('div');
+    actions.className = 'worker-row-actions';
+
+    // Recall button
     if (w.status !== 'idle') {
       const returning = w.status === 'returning';
       const recallBtn = document.createElement('button');
-      recallBtn.className = 'worker-auto-btn';
-      recallBtn.textContent = returning ? '↩…' : '↩';
+      recallBtn.className = 'worker-action-btn';
+      recallBtn.textContent = returning ? '↩…' : '↩ Richiama';
       recallBtn.title    = returning ? 'Già in rientro' : 'Richiama al villaggio';
       recallBtn.disabled = returning;
       recallBtn.dataset.action   = 'recall';
       recallBtn.dataset.workerId = w.id;
-      div.appendChild(recallBtn);
+      actions.appendChild(recallBtn);
     }
 
     if (canAuto && !w.sick) {
       const autoBtn = document.createElement('button');
-      autoBtn.className = `worker-auto-btn ${w.auto ? 'active' : ''}`;
+      autoBtn.className = `worker-action-btn ${w.auto ? 'active' : ''}`;
       autoBtn.textContent = w.auto ? '🔄 Auto ON' : '🔄 Auto';
       autoBtn.dataset.action   = 'auto';
       autoBtn.dataset.workerId = w.id;
-      div.appendChild(autoBtn);
+      actions.appendChild(autoBtn);
     }
 
     if (canEvolve && w.type === 'normal' && !w.sick) {
       const enough = canAfford({ lingotti:3 });
       const evBtn  = document.createElement('button');
-      evBtn.className = 'worker-evolve-btn';
+      evBtn.className = 'worker-action-btn evolve';
       evBtn.textContent = 'Evolvi (3🥇)';
       evBtn.disabled = !enough;
       evBtn.dataset.action   = 'evolve';
       evBtn.dataset.workerId = w.id;
-      div.appendChild(evBtn);
+      actions.appendChild(evBtn);
     }
+
+    topRow.appendChild(actions);
+    div.appendChild(topRow);
+
+    // ── Bottom row: status pill · badges ───────────────────────────────────
+    const botRow = document.createElement('div');
+    botRow.className = 'worker-row-bottom';
+    botRow.innerHTML =
+      `<span class="worker-status" data-wstatus="${w.id}">${statusText}${dest}</span>` +
+      `<span class="worker-badges" data-wbadges="${w.id}">${_workerBadgesHtml(w)}</span>`;
+    div.appendChild(botRow);
 
     container.appendChild(div);
   }
