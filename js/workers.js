@@ -337,13 +337,17 @@ export function updateWorkers(dt, onComplete, onResearchComplete, onCraftComplet
       continue;
     }
 
-    // Researching: passive ricerca generation
+    // Researching: passive ricerca generation only when no recipe is active
     if (w.status === 'researching') {
-      w.researchAccum = (w.researchAccum ?? 0) + dt * rsMult;
-      if (w.researchAccum >= RESEARCH_GEN_TIME) {
-        w.researchAccum -= RESEARCH_GEN_TIME;
-        addResources({ ricerca: 1 });
-        onToast?.('🔬 +1 Ricerca');
+      const hasActiveRecipe = (state.research?.active ?? [])
+        .some(ra => ra.hexKey === w.targetHexKey);
+      if (!hasActiveRecipe) {
+        w.researchAccum = (w.researchAccum ?? 0) + dt * rsMult;
+        if (w.researchAccum >= RESEARCH_GEN_TIME) {
+          w.researchAccum -= RESEARCH_GEN_TIME;
+          addResources({ ricerca: 1 });
+          onToast?.('🔬 +1 Ricerca');
+        }
       }
       continue;
     }
