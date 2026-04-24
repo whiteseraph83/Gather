@@ -1,0 +1,60 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <defs>
+    <radialGradient id="hg" cx="40%" cy="30%" r="65%">
+      <stop offset="0%"   stop-color="#ffe57a"/>
+      <stop offset="60%"  stop-color="#c8982a"/>
+      <stop offset="100%" stop-color="#7a5a14"/>
+    </radialGradient>
+    <radialGradient id="bg" cx="50%" cy="50%" r="50%">
+      <stop offset="0%"   stop-color="#1a2040"/>
+      <stop offset="100%" stop-color="#06080f"/>
+    </radialGradient>
+    <filter id="glow">
+      <feGaussianBlur stdDeviation="1.5" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+
+  <!-- Background circle -->
+  <circle cx="32" cy="32" r="31" fill="url(#bg)"/>
+
+  <!-- Outer hex (flat-top) -->
+  <polygon
+    points="32,5 56,18.5 56,45.5 32,59 8,45.5 8,18.5"
+    fill="none"
+    stroke="#c8982a"
+    stroke-width="2.5"
+    opacity="0.6"
+  />
+
+  <!-- Inner filled hex -->
+  <polygon
+    points="32,12 51,22.5 51,41.5 32,52 13,41.5 13,22.5"
+    fill="url(#hg)"
+    filter="url(#glow)"
+  />
+
+  <!-- Shine overlay -->
+  <polygon
+    points="32,12 51,22.5 51,41.5 32,52 13,41.5 13,22.5"
+    fill="url(#shine)"
+    opacity="0.18"
+  />
+  <defs>
+    <linearGradient id="shine" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%"   stop-color="#fff"/>
+      <stop offset="100%" stop-color="#fff" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+
+  <!-- "H" letter centred -->
+  <text
+    x="32" y="41"
+    text-anchor="middle"
+    font-family="'Palatino Linotype', Georgia, serif"
+    font-weight="700"
+    font-size="26"
+    fill="#1a1000"
+    opacity="0.85"
+  >H</text>
+</svg>
