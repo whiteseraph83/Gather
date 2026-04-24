@@ -459,9 +459,9 @@ function _drawUpgradeBadge(ctx, cx, cy, level) {
   // Position: bottom of hex, inscribed within the lower hex edge
   // For a flat-topped hex, bottom vertex is at cy + DS.
   // We place the star centred on the bottom vertex area.
-  const R  = DS * 0.18;           // star outer radius
+  const R  = DS * 0.26;           // star outer radius
   const bx = cx;
-  const by = cy + DS * 0.82;      // just inside the bottom edge
+  const by = cy + DS * 0.62;      // slightly above the bottom edge
 
   ctx.save();
   ctx.shadowColor = 'rgba(0,0,0,0.85)';
