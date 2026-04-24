@@ -10,7 +10,7 @@ import { getState } from './state.js';
 import { deductResources } from './resources.js';
 import { RESOURCE_ICON, RESOURCE_LABEL } from './config.js';
 
-export const DAY_DURATION = 120; // seconds per in-game day
+export const DAY_DURATION = 360; // seconds per in-game day
 
 // Base tax for day 1.  Scaled by (1 + (day-1) * 0.15) each subsequent day.
 const BASE_TAX = {
