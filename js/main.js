@@ -255,8 +255,9 @@ function onAction(q, r) {
   }
 
   // Normal mode → dispatch diretto
-  if (!dispatchWorker(q, r)) showToast('⚠ Nessun lavoratore disponibile');
-  else saveGame();
+  if (!dispatchWorker(q, r)) {
+    showToast(hex.type === 'ospedale' ? '⚠ Nessun malato da curare' : '⚠ Nessun lavoratore disponibile');
+  } else saveGame();
   updateUI(false);
 }
 

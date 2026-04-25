@@ -452,11 +452,17 @@ function _lightTickHexModal(state) {
   const hex = state.hexes[_hexModalKey];
   if (!hex) return;
 
-  // Hospital: update heal progress bars in-place
+  // Hospital: update heal progress bars in-place; rebuild if worker just arrived
   if (hex.type === 'ospedale') {
-    const healTotal = sickHealTime(state);
-    for (const w of getWorkers()) {
-      if (w.status !== 'healing') continue;
+    const healTotal  = sickHealTime(state);
+    const healWorkers = getWorkers().filter(w => w.status === 'healing' && w.targetHexKey === _hexModalKey);
+    // If a worker is healing but the bar isn't in the DOM yet, the modal was built
+    // while the worker was still 'going' — rebuild it now.
+    if (healWorkers.some(w => !document.querySelector(`[data-healbar="${w.id}"]`))) {
+      openHexModal(_hexModalKey);
+      return;
+    }
+    for (const w of healWorkers) {
       const bar  = document.querySelector(`[data-healbar="${w.id}"]`);
       const time = document.querySelector(`[data-healtime="${w.id}"]`);
       if (bar)  bar.style.width = Math.min(100, Math.round(((w.healElapsed ?? 0) / healTotal) * 100)) + '%';
