@@ -400,6 +400,36 @@ button.buy-btn:disabled {
 
 /* ── Toast notification ───────────────────────────────────────────────────── */
 
+/* ── Gear mode button ────────────────────────────────────────────────────────── */
+#gear-mode-btn {
+  position: fixed;
+  bottom: 24px;
+  left: 24px;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  font-size: 20px;
+  background: var(--surface2);
+  border: 1px solid var(--border2);
+  color: var(--text-dim);
+  cursor: pointer;
+  z-index: 90;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+#gear-mode-btn:hover {
+  border-color: var(--gold-dim);
+  color: var(--text);
+}
+#gear-mode-btn.active {
+  background: rgba(200,152,42,0.2);
+  border-color: var(--gold-dim);
+  color: var(--gold-light);
+  box-shadow: 0 0 14px rgba(200,152,42,0.35);
+}
+
 #toast {
   position: fixed;
   bottom: 24px;

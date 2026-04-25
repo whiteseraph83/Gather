@@ -639,16 +639,6 @@ function _panelGather(container, hex, selKey, state) {
     hint.className = 'hint';
     hint.textContent = 'Lavoratore già assegnato.';
     container.appendChild(hint);
-  } else if (getWorkers().some(w => w.status === 'idle')) {
-    container.appendChild(_makeBtn('👷 Invia lavoratore', 'action-btn', () => {
-      _cb.onHarvest?.(q, r);
-      closeHexModal();
-    }));
-  } else {
-    const hint = document.createElement('div');
-    hint.className = 'hint';
-    hint.textContent = 'Nessun lavoratore disponibile.';
-    container.appendChild(hint);
   }
 
   // Upgrade section
@@ -772,14 +762,6 @@ function _panelRicerca(container, hex, selKey, state) {
   const resWorker   = workers.find(w => w.status === 'researching' && w.targetHexKey === selKey);
   const goingWorker = workers.find(w => w.targetHexKey === selKey && (w.status === 'going' || w.status === 'returning'));
 
-  if (!resWorker && !goingWorker) {
-    container.appendChild(_makeBtn('👷 Invia ricercatore', 'action-btn', () => {
-      _cb.onHarvest?.(q, r);
-      closeHexModal();
-    }));
-    return;
-  }
-
   if (goingWorker && !resWorker) {
     const hint = document.createElement('div');
     hint.className = 'hint';
@@ -788,13 +770,14 @@ function _panelRicerca(container, hex, selKey, state) {
     return;
   }
 
-  container.appendChild(_makeBtn('↩ Richiama lavoratore', 'action-btn secondary',
-    () => { recallWorker(resWorker.id); updateUI(); }
-  ));
-
-  const sep = document.createElement('hr');
-  sep.className = 'panel-sep';
-  container.appendChild(sep);
+  if (resWorker) {
+    container.appendChild(_makeBtn('↩ Richiama lavoratore', 'action-btn secondary',
+      () => { recallWorker(resWorker.id); updateUI(); }
+    ));
+    const sep = document.createElement('hr');
+    sep.className = 'panel-sep';
+    container.appendChild(sep);
+  }
 
   if (ra) {
     const recipe = RESEARCH_RECIPES[ra.recipeId];
@@ -821,21 +804,6 @@ function _panelCraftStation(container, hex, selKey, state) {
   const worker    = workers.find(w => w.targetHexKey === selKey && w.status === 'crafting');
   const going     = workers.find(w => w.targetHexKey === selKey && (w.status === 'going' || w.status === 'returning'));
 
-  if (!worker && !going) {
-    if (getWorkers().some(w => w.status === 'idle')) {
-      container.appendChild(_makeBtn('👷 Invia lavoratore', 'action-btn', () => {
-        _cb.onHarvest?.(q, r);
-        closeHexModal();
-      }));
-    } else {
-      const hint = document.createElement('div');
-      hint.className = 'hint';
-      hint.textContent = 'Nessun lavoratore disponibile.';
-      container.appendChild(hint);
-    }
-    return;
-  }
-
   if (going && !worker) {
     const hint = document.createElement('div');
     hint.className = 'hint';
@@ -844,9 +812,11 @@ function _panelCraftStation(container, hex, selKey, state) {
     return;
   }
 
-  container.appendChild(_makeBtn('↩ Richiama lavoratore', 'action-btn secondary',
-    () => { recallWorker(worker.id); updateUI(); }
-  ));
+  if (worker) {
+    container.appendChild(_makeBtn('↩ Richiama lavoratore', 'action-btn secondary',
+      () => { recallWorker(worker.id); updateUI(); }
+    ));
+  }
 
   const ca = hex.craftActive;
   if (ca) {
@@ -906,12 +876,6 @@ function _panelOspedale(container, hex, selKey, state) {
     return;
   }
 
-  if (sickIdle.length > 0) {
-    container.appendChild(_makeBtn(
-      `👷 Invia malato in cura (${sickIdle.length})`, 'action-btn',
-      () => { _cb.onHealWorker?.(q, r); closeHexModal(); }
-    ));
-  }
 }
 
 // ── Build menu (purchasable hex) ──────────────────────────────────────────────

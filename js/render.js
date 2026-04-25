@@ -2,6 +2,7 @@ import { HEX_SIZE, HEX_COLOR, HEX_LABEL, RESEARCH_GEN_TIME, RESEARCH_RECIPES, wo
 import { hexToPixel, hexPath, hexKey } from './hex.js';
 import { getWorkers } from './workers.js';
 import { getState } from './state.js';
+import { isGearModeActive } from './gearMode.js';
 
 // ── Visual constants ──────────────────────────────────────────────────────────
 
@@ -907,6 +908,17 @@ export function render(canvas, ctx, camera, state) {
         }
         _drawResearchClock(ctx, x, y, progress);
       }
+    }
+
+    // Gear mode overlay: ⚙ on owned non-starter hexes
+    if (isGearModeActive() && hex.owned && hex.type !== 'starter') {
+      ctx.save();
+      ctx.font      = `${Math.round(DS * 0.28)}px sans-serif`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.globalAlpha  = 0.9;
+      ctx.fillText('⚙', x, y - DS * 0.18);
+      ctx.restore();
     }
 
     if (isHov) ctx.restore();

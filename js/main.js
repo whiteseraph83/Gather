@@ -12,6 +12,7 @@ import { initInput } from './input.js';
 import { hexToPixel } from './hex.js';
 import { generateBonusChoices } from './achievements.js';
 import { DAY_DURATION, applyTax, initSunWidget, updateSunWidget } from './day.js';
+import { isGearModeActive, toggleGearMode } from './gearMode.js';
 
 const SIDEBAR_W = 280;
 
@@ -181,6 +182,15 @@ function init() {
   sidebarToggle.addEventListener('click', () => sidebarEl.classList.contains('open') ? closeSidebar() : openSidebar());
   sidebarBackdrop.addEventListener('click', closeSidebar);
 
+  // Gear mode button
+  const gearBtn = document.getElementById('gear-mode-btn');
+  gearBtn.title = 'Modalità gestione — clicca gli hex per aprire la modal';
+  gearBtn.addEventListener('click', () => {
+    const active = toggleGearMode();
+    gearBtn.classList.toggle('active', active);
+    updateUI(false);
+  });
+
   document.getElementById('reset-btn').addEventListener('click', () => {
     if (confirm('Vuoi davvero ricominciare? Tutti i progressi andranno persi.')) {
       resetGame();
@@ -226,12 +236,21 @@ function onAction(q, r) {
   const state = getState();
   const hex   = state.hexes[key];
   if (!hex) return;
-  if (!hex.owned && !hex.purchasable) return;
-  if (hex.purchasable && !hex.owned) {
-    openBuildModal(q, r);
-  } else {
-    openHexModal(key);
-  }
+
+  // Purchasable ("?") → build modal sempre
+  if (hex.purchasable && !hex.owned) { openBuildModal(q, r); return; }
+  if (!hex.owned) return;
+
+  // Villaggio → modal sempre
+  if (hex.type === 'starter') { openHexModal(key); return; }
+
+  // Gear mode → modal di contesto
+  if (isGearModeActive()) { openHexModal(key); return; }
+
+  // Normal mode → dispatch diretto
+  if (!dispatchWorker(q, r)) showToast('⚠ Nessun lavoratore disponibile');
+  else saveGame();
+  updateUI(false);
 }
 
 function _formatGains(payload, consume = {}) {
