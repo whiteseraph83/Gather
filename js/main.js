@@ -247,6 +247,13 @@ function onAction(q, r) {
   // Gear mode → modal di contesto
   if (isGearModeActive()) { openHexModal(key); return; }
 
+  // Ricerca con lavoratore già presente → modal (per vedere progress / ricette)
+  if (hex.type === 'ricerca') {
+    const workers = getWorkers();
+    const hasWorker = workers.some(w => w.targetHexKey === key && w.status !== 'idle' && w.status !== 'returning');
+    if (hasWorker) { openHexModal(key); return; }
+  }
+
   // Normal mode → dispatch diretto
   if (!dispatchWorker(q, r)) showToast('⚠ Nessun lavoratore disponibile');
   else saveGame();
