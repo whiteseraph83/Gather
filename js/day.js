@@ -241,7 +241,19 @@ function _updateDayText(day) {
     .map(([r, n]) => {
       const icon  = RESOURCE_ICON[r]  ?? '';
       const label = RESOURCE_LABEL[r] ?? r;
-      return `<span class="day-tax-item"><span class="day-tax-amt">${n}</span>${icon} ${label}</span>`;
+      return `<span class="day-tax-item" data-taxres="${r}" data-taxamt="${n}"><span class="day-tax-amt">${n}</span>${icon} ${label}</span>`;
     })
     .join('');
+}
+
+/** Update green/normal colour of each tax row based on current resources. */
+export function updateTaxColors() {
+  const state  = getState();
+  const items  = document.querySelectorAll('.day-tax-item[data-taxres]');
+  for (const el of items) {
+    const r    = el.dataset.taxres;
+    const need = Number(el.dataset.taxamt);
+    const have = state.resources?.[r] ?? 0;
+    el.classList.toggle('paid', have >= need);
+  }
 }

@@ -1255,6 +1255,13 @@ button.action-btn.danger-action:hover:not(:disabled) {
   gap: 4px;
   font-size: 12px;
   color: var(--text);
+  transition: color 0.4s;
+}
+.day-tax-item.paid {
+  color: #4caf70;
+}
+.day-tax-item.paid .day-tax-amt {
+  color: #4caf70;
 }
 
 .day-tax-amt {

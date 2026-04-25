@@ -11,6 +11,7 @@ import { getSelectedHex } from './render.js';
 import { canAfford, getResource } from './resources.js';
 import { getAvailableBuildTypes, buildHex, getScaledBuildCost,
          getPermitResearchCost, upgradeHex, demolishHex } from './economy.js';
+import { updateTaxColors } from './day.js';
 
 // ── Resource tooltips ─────────────────────────────────────────────────────────
 
@@ -344,6 +345,15 @@ export function buildUI(callbacks) {
   document.getElementById('hex-modal')
     .addEventListener('click', e => { if (e.target === e.currentTarget) closeHexModal(); });
 
+  // Close any open modal on ESC (level-up modal excluded — player must choose)
+  document.addEventListener('keydown', e => {
+    if (e.key !== 'Escape') return;
+    if (!document.getElementById('hex-modal').classList.contains('hidden'))      { closeHexModal();      return; }
+    if (!document.getElementById('research-modal').classList.contains('hidden')) { closeResearchModal(); return; }
+    if (!document.getElementById('build-modal').classList.contains('hidden'))    { closeBuildModal();    return; }
+    if (!document.getElementById('craft-modal').classList.contains('hidden'))    { closeCraftModal();    return; }
+  });
+
   // Delegated listener for village worker buttons (recall / auto / evolve).
   // These buttons are destroyed and recreated every updateUI() tick, so we
   // attach ONE persistent listener to the stable container instead.
@@ -428,6 +438,8 @@ export function updateUI(fullModal = true) {
     el.className   = 'res-amount' + (val > 0 ? ' nonzero' : '');
   }
 
+
+  updateTaxColors();
 
   const hexModalOpen      = !document.getElementById('hex-modal').classList.contains('hidden');
   const researchModalOpen = !document.getElementById('research-modal').classList.contains('hidden');
