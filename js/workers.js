@@ -132,7 +132,7 @@ export function dispatchWorker(q, r) {
   const key   = hexKey(q, r);
   const hex   = state.hexes[key];
 
-  if (!hex || !hex.owned || hex.type === 'starter') return false;
+  if (!hex || !hex.owned || hex.type === 'starter' || hex.type === 'casa') return false;
 
   const forHospital = hex.type === 'ospedale';
   // For hospital: pick a sick idle worker; for any other hex: prefer healthy,
