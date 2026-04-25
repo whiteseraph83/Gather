@@ -864,16 +864,16 @@ function _drawGearOverlay(ctx, cx, cy) {
 
   ctx.save();
 
-  // Semi-transparent dark circle so the gear is readable on any hex colour
-  ctx.globalAlpha = 0.60;
+  // Subtle dark circle behind the gear
+  ctx.globalAlpha = 0.28;
   ctx.fillStyle   = '#000';
   ctx.beginPath();
   ctx.arc(cx, cy, r * 1.12, 0, Math.PI * 2);
   ctx.fill();
 
   // Gear shape path
-  ctx.globalAlpha = 1.0;
-  ctx.fillStyle   = 'rgba(220,185,55,0.95)'; // gold
+  ctx.globalAlpha = 0.45;
+  ctx.fillStyle   = 'rgba(220,185,55,1)';
 
   ctx.beginPath();
   for (let i = 0; i < n; i++) {
