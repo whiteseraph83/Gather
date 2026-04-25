@@ -975,11 +975,18 @@ export function render(canvas, ctx, camera, state) {
     // Gear mode overlay: ⚙ on owned non-starter hexes
     if (isGearModeActive() && hex.owned && hex.type !== 'starter') {
       ctx.save();
-      ctx.font      = `${Math.round(DS * 0.28)}px sans-serif`;
-      ctx.textAlign = 'center';
+      // Semi-transparent dark backdrop so the icon is readable on any hex colour
+      ctx.globalAlpha = 0.55;
+      ctx.fillStyle   = '#000';
+      ctx.beginPath();
+      ctx.arc(x, y, DS * 0.62, 0, Math.PI * 2);
+      ctx.fill();
+      // Large ⚙ icon centred on the hex
+      ctx.globalAlpha  = 1.0;
+      ctx.font         = `${Math.round(DS * 0.82)}px sans-serif`;
+      ctx.textAlign    = 'center';
       ctx.textBaseline = 'middle';
-      ctx.globalAlpha  = 0.9;
-      ctx.fillText('⚙', x, y - DS * 0.18);
+      ctx.fillText('⚙', x, y);
       ctx.restore();
     }
 
