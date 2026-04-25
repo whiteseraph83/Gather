@@ -247,8 +247,8 @@ function onAction(q, r) {
   // Gear mode → modal di contesto
   if (isGearModeActive()) { openHexModal(key); return; }
 
-  // Ricerca con lavoratore già presente → modal (per vedere progress / ricette)
-  if (hex.type === 'ricerca') {
+  // Ricerca/ospedale con lavoratore già presente → modal (per vedere progress)
+  if (hex.type === 'ricerca' || hex.type === 'ospedale') {
     const workers = getWorkers();
     const hasWorker = workers.some(w => w.targetHexKey === key && w.status !== 'idle' && w.status !== 'returning');
     if (hasWorker) { openHexModal(key); return; }

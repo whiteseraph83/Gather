@@ -636,6 +636,9 @@ button.buy-btn.small {
   border-radius: 3px;
   transition: width 1s linear;
 }
+.research-bar--heal {
+  background: linear-gradient(90deg, #8b1a1a, #e05555);
+}
 .research-time {
   font-size: 10px;
   color: var(--text-dim);

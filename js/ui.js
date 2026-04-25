@@ -457,8 +457,10 @@ function _lightTickHexModal(state) {
     const healTotal = sickHealTime(state);
     for (const w of getWorkers()) {
       if (w.status !== 'healing') continue;
-      const bar = document.querySelector(`[data-healbar="${w.id}"]`);
-      if (bar) bar.style.width = Math.min(100, Math.round(((w.healElapsed ?? 0) / healTotal) * 100)) + '%';
+      const bar  = document.querySelector(`[data-healbar="${w.id}"]`);
+      const time = document.querySelector(`[data-healtime="${w.id}"]`);
+      if (bar)  bar.style.width = Math.min(100, Math.round(((w.healElapsed ?? 0) / healTotal) * 100)) + '%';
+      if (time) time.textContent = Math.max(0, Math.round(healTotal - (w.healElapsed ?? 0))) + 's rimanenti';
     }
     return;
   }
@@ -860,10 +862,13 @@ function _panelOspedale(container, hex, selKey, state) {
       const pct = Math.min(100, Math.round(((w.healElapsed ?? 0) / healTotal) * 100));
       const div = document.createElement('div');
       div.className = 'research-active';
-      div.dataset.healId = w.id;
+      const remSec = Math.max(0, Math.round(healTotal - (w.healElapsed ?? 0)));
+      div.dataset.healId    = w.id;
+      div.dataset.healTotal = healTotal;
       div.innerHTML =
         `<div class="research-name">🤒 Lavoratore ${workerLabel(w.id)} in cura</div>` +
-        `<div class="research-bar-wrap"><div class="research-bar" data-healbar="${w.id}" style="width:${pct}%"></div></div>`;
+        `<div class="research-bar-wrap"><div class="research-bar research-bar--heal" data-healbar="${w.id}" style="width:${pct}%"></div></div>` +
+        `<div class="research-time" data-healtime="${w.id}">${remSec}s rimanenti</div>`;
       container.appendChild(div);
     }
   }
