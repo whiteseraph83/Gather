@@ -247,7 +247,7 @@ function onAction(q, r) {
   // Gear mode → modal di contesto, poi disattiva gear
   if (isGearModeActive()) {
     setGearMode(false);
-    gearBtn.classList.remove('active');
+    document.getElementById('gear-mode-btn').classList.remove('active');
     openHexModal(key);
     return;
   }
