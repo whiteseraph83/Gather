@@ -12,7 +12,7 @@ import { initInput } from './input.js';
 import { hexToPixel } from './hex.js';
 import { generateBonusChoices } from './achievements.js';
 import { DAY_DURATION, applyTax, initSunWidget, updateSunWidget } from './day.js';
-import { isGearModeActive, toggleGearMode } from './gearMode.js';
+import { isGearModeActive, toggleGearMode, setGearMode } from './gearMode.js';
 
 const SIDEBAR_W = 280;
 
@@ -244,8 +244,13 @@ function onAction(q, r) {
   // Villaggio → modal sempre
   if (hex.type === 'starter') { openHexModal(key); return; }
 
-  // Gear mode → modal di contesto
-  if (isGearModeActive()) { openHexModal(key); return; }
+  // Gear mode → modal di contesto, poi disattiva gear
+  if (isGearModeActive()) {
+    setGearMode(false);
+    gearBtn.classList.remove('active');
+    openHexModal(key);
+    return;
+  }
 
   // Ricerca/ospedale con lavoratore già presente → modal (per vedere progress)
   if (hex.type === 'ricerca' || hex.type === 'ospedale') {
