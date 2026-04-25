@@ -1,6 +1,6 @@
 import { HEX_SIZE, HEX_COLOR, HEX_LABEL, RESEARCH_GEN_TIME, RESEARCH_RECIPES, workerLabel } from './config.js';
 import { hexToPixel, hexPath, hexKey } from './hex.js';
-import { getWorkers } from './workers.js';
+import { getWorkers, sickHealTime } from './workers.js';
 import { getState } from './state.js';
 import { isGearModeActive } from './gearMode.js';
 
@@ -803,6 +803,56 @@ function _drawResearchClock(ctx, cx, cy, progress) {
   ctx.restore();
 }
 
+// ── Heal clock overlay (red, for ospedale) ───────────────────────────────────
+
+function _drawHealClock(ctx, cx, cy, progress) {
+  const R     = DS * 0.62;
+  const start = -Math.PI / 2;
+  const end   = start + Math.PI * 2 * progress;
+  const glow  = 0.3 + progress * 0.7;
+
+  ctx.save();
+
+  // Background ring
+  ctx.beginPath();
+  ctx.arc(cx, cy, R, 0, Math.PI * 2);
+  ctx.strokeStyle = 'rgba(180,40,40,0.14)';
+  ctx.lineWidth   = 3;
+  ctx.stroke();
+
+  // Filled arc
+  if (progress > 0) {
+    ctx.beginPath();
+    ctx.arc(cx, cy, R, start, end);
+    ctx.shadowColor = `rgba(220,60,60,${glow * 0.9})`;
+    ctx.shadowBlur  = 10 + progress * 14;
+    ctx.strokeStyle = `rgba(220,${Math.round(60 - progress * 20)},${Math.round(60 - progress * 20)},${0.55 + progress * 0.45})`;
+    ctx.lineWidth   = 3.5;
+    ctx.lineCap     = 'round';
+    ctx.stroke();
+
+    // Glowing dot at arc tip
+    const tipX = cx + R * Math.cos(end);
+    const tipY = cy + R * Math.sin(end);
+    ctx.beginPath();
+    ctx.arc(tipX, tipY, 4.5, 0, Math.PI * 2);
+    ctx.fillStyle   = `rgba(255,140,140,${0.7 + progress * 0.3})`;
+    ctx.shadowColor = `rgba(255,80,80,${glow})`;
+    ctx.shadowBlur  = 16;
+    ctx.fill();
+  }
+
+  // Subtle red bloom
+  const bloom = ctx.createRadialGradient(cx, cy, 0, cx, cy, DS * 0.8);
+  bloom.addColorStop(0,   `rgba(200,40,40,${0.04 + progress * 0.10})`);
+  bloom.addColorStop(0.6, `rgba(160,30,30,${0.02 + progress * 0.04})`);
+  bloom.addColorStop(1,   'rgba(0,0,0,0)');
+  ctx.fillStyle = bloom;
+  ctx.fillRect(cx - DS, cy - DS, DS * 2, DS * 2);
+
+  ctx.restore();
+}
+
 // ── Main render ───────────────────────────────────────────────────────────────
 
 export function render(canvas, ctx, camera, state) {
@@ -907,6 +957,18 @@ export function render(canvas, ctx, camera, state) {
           progress = Math.min(1, (researcher.researchAccum ?? 0) / RESEARCH_GEN_TIME);
         }
         _drawResearchClock(ctx, x, y, progress);
+      }
+    }
+
+    // Heal clock overlay for ospedale hex with active healing
+    if (hex.type === 'ospedale') {
+      const healer = getWorkers().find(
+        w => w.status === 'healing' && w.targetHexKey === key
+      );
+      if (healer) {
+        const healTotal = sickHealTime(getState());
+        const progress  = Math.min(1, (healer.healElapsed ?? 0) / healTotal);
+        _drawHealClock(ctx, x, y, progress);
       }
     }
 

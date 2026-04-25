@@ -4,7 +4,7 @@ import { getState } from './state.js';
 import { canAfford, deductResources, addResources } from './resources.js';
 import { hexKey } from './hex.js';
 import { refreshPurchasable } from './map.js';
-import { addWorker } from './workers.js';
+import { addWorker, getWorkers, recallWorker } from './workers.js';
 
 // ── Cost scaling for permit-type hexes ────────────────────────────────────────
 
@@ -108,6 +108,17 @@ export function demolishHex(key) {
     if (amt > 0) refund[r] = amt;
   }
   if (Object.keys(refund).length) addResources(refund);
+
+  // Recall any workers assigned to this hex and disable AUTO so they don't return
+  for (const w of getWorkers()) {
+    if (w.targetHexKey === key || w.lastHexKey === key) {
+      if (w.targetHexKey === key) recallWorker(w.id); // sends them home
+      w.auto        = false;
+      w.lastHexKey  = null;
+      const sw = state.workers.find(s => s.id === w.id);
+      if (sw) { sw.auto = false; sw.lastHexKey = null; }
+    }
+  }
 
   // Mark as unowned purchasable again
   state.hexes[key] = {
