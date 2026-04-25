@@ -975,18 +975,18 @@ export function render(canvas, ctx, camera, state) {
     // Gear mode overlay: ⚙ on owned non-starter hexes
     if (isGearModeActive() && hex.owned && hex.type !== 'starter') {
       ctx.save();
-      // Semi-transparent dark backdrop so the icon is readable on any hex colour
-      ctx.globalAlpha = 0.55;
+      // Dark backdrop covering most of the hex face
+      ctx.globalAlpha = 0.72;
       ctx.fillStyle   = '#000';
       ctx.beginPath();
-      ctx.arc(x, y, DS * 0.62, 0, Math.PI * 2);
+      ctx.arc(x, y, DS * 0.78, 0, Math.PI * 2);
       ctx.fill();
-      // Large ⚙ icon centred on the hex
+      // ⚙ icon — use a large font; emoji often renders at ~60% of specified size
       ctx.globalAlpha  = 1.0;
-      ctx.font         = `${Math.round(DS * 0.82)}px sans-serif`;
+      ctx.font         = `${Math.round(DS * 1.6)}px sans-serif`;
       ctx.textAlign    = 'center';
       ctx.textBaseline = 'middle';
-      ctx.fillText('⚙', x, y);
+      ctx.fillText('⚙', x, y + DS * 0.06); // tiny nudge down to visually centre emoji
       ctx.restore();
     }
 
