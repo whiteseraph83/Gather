@@ -853,6 +853,54 @@ function _drawHealClock(ctx, cx, cy, progress) {
   ctx.restore();
 }
 
+// ── Gear overlay (drawn with canvas paths, no emoji) ─────────────────────────
+
+function _drawGearOverlay(ctx, cx, cy) {
+  const r      = DS * 0.70;   // outer radius of gear teeth
+  const innerR = r  * 0.68;   // root circle (between teeth)
+  const holeR  = r  * 0.26;   // centre hole
+  const n      = 8;            // number of teeth
+  const tw     = Math.PI / n * 0.46; // half-width of each tooth
+
+  ctx.save();
+
+  // Semi-transparent dark circle so the gear is readable on any hex colour
+  ctx.globalAlpha = 0.60;
+  ctx.fillStyle   = '#000';
+  ctx.beginPath();
+  ctx.arc(cx, cy, r * 1.12, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Gear shape path
+  ctx.globalAlpha = 1.0;
+  ctx.fillStyle   = 'rgba(220,185,55,0.95)'; // gold
+
+  ctx.beginPath();
+  for (let i = 0; i < n; i++) {
+    const base = (i / n) * Math.PI * 2 - Math.PI / 2;
+    const a0   = base - tw;           // tooth leading edge (inner)
+    const a2   = base + tw;           // tooth trailing edge (inner)
+    const a4   = ((i + 1) / n) * Math.PI * 2 - Math.PI / 2 - tw; // next tooth leading
+
+    if (i === 0) ctx.moveTo(cx + innerR * Math.cos(a0), cy + innerR * Math.sin(a0));
+    else         ctx.lineTo(cx + innerR * Math.cos(a0), cy + innerR * Math.sin(a0));
+
+    ctx.lineTo(cx + r * Math.cos(a0), cy + r * Math.sin(a0)); // up to tip
+    ctx.lineTo(cx + r * Math.cos(a2), cy + r * Math.sin(a2)); // across tip
+    ctx.lineTo(cx + innerR * Math.cos(a2), cy + innerR * Math.sin(a2)); // back down
+    ctx.arc(cx, cy, innerR, a2, a4);  // arc along root to next tooth
+  }
+  ctx.closePath();
+
+  // Centre hole (even-odd rule cuts it out)
+  ctx.moveTo(cx + holeR, cy);
+  ctx.arc(cx, cy, holeR, 0, Math.PI * 2, true);
+
+  ctx.fill('evenodd');
+
+  ctx.restore();
+}
+
 // ── Main render ───────────────────────────────────────────────────────────────
 
 export function render(canvas, ctx, camera, state) {
@@ -972,22 +1020,9 @@ export function render(canvas, ctx, camera, state) {
       }
     }
 
-    // Gear mode overlay: ⚙ on owned non-starter hexes
+    // Gear mode overlay: drawn programmatically (emoji is unreliable on canvas)
     if (isGearModeActive() && hex.owned && hex.type !== 'starter') {
-      ctx.save();
-      // Dark backdrop covering most of the hex face
-      ctx.globalAlpha = 0.72;
-      ctx.fillStyle   = '#000';
-      ctx.beginPath();
-      ctx.arc(x, y, DS * 0.78, 0, Math.PI * 2);
-      ctx.fill();
-      // ⚙ icon — use a large font; emoji often renders at ~60% of specified size
-      ctx.globalAlpha  = 1.0;
-      ctx.font         = `${Math.round(DS * 1.6)}px sans-serif`;
-      ctx.textAlign    = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillText('⚙', x, y + DS * 0.06); // tiny nudge down to visually centre emoji
-      ctx.restore();
+      _drawGearOverlay(ctx, x, y);
     }
 
     if (isHov) ctx.restore();
