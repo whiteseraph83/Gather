@@ -73,7 +73,14 @@ function _populateResearchModal(state) {
 
   const cards = [];
 
+  const buildCount = state.buildCount ?? {};
+
   for (const [id, recipe] of Object.entries(RESEARCH_RECIPES)) {
+    // Hide when maxBuilt threshold is reached
+    if (recipe.maxBuilt && Object.entries(recipe.maxBuilt).every(([t, n]) => (buildCount[t] ?? 0) >= n)) continue;
+    // Hide when requiresBuilt condition is not yet met
+    if (recipe.requiresBuilt && !Object.entries(recipe.requiresBuilt).every(([t, n]) => (buildCount[t] ?? 0) >= n)) continue;
+
     const isPermit = PERMIT_TYPES.has(recipe.unlocks);
 
     // For upgrade/general: standard done check
@@ -621,7 +628,7 @@ function _renderOwnedHex(container, hex, selKey, state) {
     case 'fabbro':
     case 'falegnameria':
     case 'caccia':      return _panelCraftStation(container, hex, selKey, state);
-    case 'casa':        return _panelCasa(container);
+    case 'casa':        return _panelCasa(container, hex, selKey, state);
     case 'ospedale':    return _panelOspedale(container, hex, selKey, state);
     default:            return _panelGather(container, hex, selKey, state);
   }
@@ -861,11 +868,41 @@ function _panelCraftStation(container, hex, selKey, state) {
   }
 }
 
-function _panelCasa(container) {
+function _panelCasa(container, hex, selKey, state) {
+  const level = hex?.level ?? 1;
   const info = document.createElement('div');
   info.className = 'hex-info-type';
-  info.textContent = 'Ha aggiunto 1 lavoratore al villaggio.';
+  info.textContent = level >= 2
+    ? 'Casa potenziata — 2 lavoratori generati.'
+    : 'Ha aggiunto 1 lavoratore al villaggio.';
   container.appendChild(info);
+
+  // Upgrade section
+  const upgrades    = HEX_UPGRADES['casa'] ?? [];
+  const nextUpgrade = upgrades.find(u => u.level === level + 1);
+  if (nextUpgrade) {
+    const unlocked   = state.research?.unlocked ?? [];
+    const isUnlocked = unlocked.includes(nextUpgrade.unlocks);
+    const sep = document.createElement('hr');
+    sep.className = 'panel-sep';
+    container.appendChild(sep);
+
+    if (isUnlocked) {
+      const canAff   = canAfford(nextUpgrade.buildCost);
+      const costDesc = _costStr(nextUpgrade.buildCost);
+      container.appendChild(_makeBtn(
+        `⬆ Potenzia a Livello 2 — ${costDesc}`,
+        'action-btn' + (canAff ? '' : ' secondary'),
+        () => { _cb.onUpgrade?.(selKey); closeHexModal(); },
+        !canAff
+      ));
+    } else {
+      const hint = document.createElement('div');
+      hint.className = 'hint';
+      hint.textContent = 'Ricerca "Casa Livello 2" per sbloccare il potenziamento (+1 lavoratore).';
+      container.appendChild(hint);
+    }
+  }
 }
 
 function _panelOspedale(container, hex, selKey, state) {

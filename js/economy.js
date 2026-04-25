@@ -14,7 +14,8 @@ export function getScaledBuildCost(type, state) {
   if (!PERMIT_TYPES.has(type)) return base;
   const n = state.buildCount?.[type] ?? 0;
   if (n === 0) return base;
-  const factor = 1 + n * 0.75;
+  // Casa uses steep exponential scaling (×2.5 per house); others use linear
+  const factor = type === 'casa' ? Math.pow(2.5, n) : 1 + n * 0.75;
   const result = {};
   for (const [r, v] of Object.entries(base)) {
     result[r] = Math.ceil(v * factor);
@@ -90,6 +91,14 @@ export function upgradeHex(key) {
 
   deductResources(next.buildCost);
   hex.level = next.level;
+
+  // Casa lv2: each upgrade generates a new worker
+  if (next.grantWorker) {
+    const state2 = getState();
+    state2.population++;
+    addWorker();
+  }
+
   return true;
 }
 

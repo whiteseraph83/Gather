@@ -8,7 +8,7 @@ export const AUTOSAVE_MS       = 30_000;
 export const WORKER_SPEED      = 95;
 export const SAVE_KEY          = 'hexdomain_save';
 export const SAVE_VERSION      = 5;
-export const GAME_VERSION      = '1.30';
+export const GAME_VERSION      = '1.31';
 export const HEAL_TIME         = 30;
 export const RESEARCH_GEN_TIME = 5;
 export const MANA_DROP_RATE    = 0.012; // ~1.2% per gather/craft completion
@@ -157,6 +157,9 @@ export const HEX_UPGRADES = {
     { level:2, unlocks:'mine_2',    buildCost:{pietra:18, ferro:8},    yieldBonus:{ferro:2}  },
     { level:3, unlocks:'mine_3',    buildCost:{pietra:45, ferro:20},   yieldBonus:{ferro:4}  },
   ],
+  casa:    [
+    { level:2, unlocks:'casa_2',    buildCost:{legno:200, pietra:150, grano:80, ferro:40}, yieldBonus:{}, grantWorker:true },
+  ],
 };
 
 /** Compute the actual yield for a hex, including level bonuses. */
@@ -207,7 +210,7 @@ export const BUILD_COST = {
   // Special hexes (permits; costs scale with buildCount)
   cucina:       { legno:25,  pietra:12, grano:20 },
   fabbro:       { pietra:30, ferro:15,  legno:10 },
-  casa:         { legno:25,  pietra:15 },
+  casa:         { legno:50,  pietra:30, grano:15 },
   ospedale:     { legno:25,  pietra:20, acqua:15 },
   falegnameria: { legno:35,  pietra:15 },
   caccia:       { legno:20,  carne:10  },
@@ -219,7 +222,8 @@ export const RESEARCH_RECIPES = {
   // Special hexes (category:'special') — each gives 1 build permit
   sblocca_cucina:        { cost:{ricerca:8},  time:60,  unlocks:'cucina',        label:'Sblocca Cucina',        desc:'Permette di costruire 1 Cucina per produrre cibo lavorato',    category:'special' },
   sblocca_fabbro:        { cost:{ricerca:12}, time:90,  unlocks:'fabbro',        label:'Sblocca Fabbro',        desc:'Permette di costruire 1 Fabbro per forgiare metalli',          category:'special' },
-  sblocca_casa:          { cost:{ricerca:5},  time:30,  unlocks:'casa',          label:'Sblocca Casa',          desc:'Permette di costruire 1 Casa (+1 lavoratore permanente)',       category:'special' },
+  sblocca_casa:          { cost:{ricerca:5},  time:30,  unlocks:'casa',          label:'Sblocca Casa',          desc:'Permette di costruire 1 Casa (+1 lavoratore permanente)',       category:'special', maxBuilt:{casa:5} },
+  casa_lv2:              { cost:{ricerca:50, lingotti:15, mana:8}, time:400, unlocks:'casa_2', label:'Casa Livello 2', desc:'Sblocca il potenziamento delle Case. Ogni Casa potenziata genera un nuovo lavoratore permanente.', category:'upgrade', requiresBuilt:{casa:5} },
   sblocca_ospedale:      { cost:{ricerca:18}, time:120, unlocks:'ospedale',      label:'Sblocca Ospedale',      desc:'Permette di costruire 1 Ospedale per curare i malati',         category:'special' },
   sblocca_falegnameria:  { cost:{ricerca:10}, time:75,  unlocks:'falegnameria',  label:'Sblocca Falegnameria',  desc:'Permette di costruire 1 Falegnameria per lavorare il legno',   category:'special' },
   sblocca_caccia:        { cost:{ricerca:6},  time:45,  unlocks:'caccia',        label:'Sblocca Caccia',        desc:'Permette di costruire 1 Campo di Caccia',                      category:'special' },

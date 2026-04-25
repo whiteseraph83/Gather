@@ -11,7 +11,7 @@ const _workers = [];
 
 const STAY_TYPES = new Set(['ricerca', 'ospedale', 'cucina', 'fabbro', 'falegnameria', 'caccia']);
 
-const SICK_CHANCE  = 0.08;  // 8 % chance per gather when AUTO is on and automazione unlocked
+const SICK_CHANCE_BASE = 0.005; // 0.5% base; +1% per 10 round trips (per worker)
 const SICK_BASE_S  = 60;    // minimum heal time (seconds)
 const SICK_SCALE_S = 30;    // extra seconds per game level above 1
 
@@ -55,6 +55,7 @@ export function initWorkers(state) {
       healElapsed:    0,
       researchAccum:  0,
       craftElapsed:   0,
+      tripCount:      w.tripCount ?? 0,
       x:              base.x,
       y:              base.y,
       baseX:          base.x,
@@ -225,14 +226,14 @@ export function addWorker() {
   const base  = hexToPixel(0, 0);
   _workers.push({
     id, status:'idle', type:'normal', auto:false, sick:false,
-    healElapsed:0, researchAccum:0, craftElapsed:0,
+    healElapsed:0, researchAccum:0, craftElapsed:0, tripCount:0,
     x:base.x, y:base.y, baseX:base.x, baseY:base.y,
     targetX:0, targetY:0, payload:{}, consume:{}, resourcePenalty:false,
     targetHexKey:null, lastHexKey:null,
   });
   state.workers.push({
     id, status:'idle', targetHexKey:null, lastHexKey:null,
-    type:'normal', auto:false, sick:false,
+    type:'normal', auto:false, sick:false, tripCount:0,
   });
 }
 
@@ -425,13 +426,20 @@ export function updateWorkers(dt, onComplete, onResearchComplete, onCraftComplet
         w.consume         = {};
         w.resourcePenalty = false;
 
+        // Increment trip counter (one full round trip completed)
+        w.tripCount = (w.tripCount ?? 0) + 1;
+        const sw3 = state.workers.find(s => s.id === w.id);
+        if (sw3) sw3.tripCount = w.tripCount;
+
         // Sickness roll: AUTO workers can fall ill after each gather if automazione is unlocked
+        // Chance = 0.5% base + 1% per 10 completed trips
         // Guard: never make ALL workers sick (at least 1 must stay healthy)
         const automUnlocked = (state.research?.unlocked ?? []).includes('automazione');
         const sickCount = _workers.filter(ww => ww.sick).length;
         if (w.auto && automUnlocked && !w.sick && Object.keys(payload).length > 0
             && sickCount < _workers.length - 1) {
-          if (Math.random() < SICK_CHANCE) {
+          const sickChance = SICK_CHANCE_BASE + Math.floor(w.tripCount / 10) * 0.01;
+          if (Math.random() < sickChance) {
             w.sick = true;
             const sw2 = state.workers.find(s => s.id === w.id);
             if (sw2) sw2.sick = true;
