@@ -1,13 +1,16 @@
 import {
-  RESOURCE_LIST, RESOURCE_LABEL, RESOURCE_ICON,
-  HEX_LABEL, HEX_YIELD, BUILD_COST,
-  RESEARCH_RECIPES, CRAFT_RECIPES,
-  PERMIT_TYPES, HEX_UPGRADES, computeHexYield, workerLabel, getHexConsume,
+  RESOURCE_LIST, RESOURCE_ICON,
+  HEX_UPGRADES, computeHexYield, workerLabel, getHexConsume,
+  RESEARCH_RECIPES, CRAFT_RECIPES, PERMIT_TYPES,
 } from './config.js';
 import { getState } from './state.js';
 import { getWorkers, getIdleCount, recallWorker, evolveWorker, toggleWorkerAuto, sickHealTime } from './workers.js';
 import { hexDistance, keyToHex, hexKey } from './hex.js';
 import { getSelectedHex } from './render.js';
+import {
+  t, resLabel, resDesc, hexLabel, hexModalLabel, craftModalTitle,
+  recipeLabel, recipeDesc, craftLabel, craftDesc,
+} from './i18n.js';
 import { canAfford, getResource } from './resources.js';
 import { getAvailableBuildTypes, buildHex, getScaledBuildCost,
          getPermitResearchCost, upgradeHex, demolishHex } from './economy.js';
@@ -15,7 +18,7 @@ import { updateTaxColors } from './day.js';
 
 // ── Resource tooltips ─────────────────────────────────────────────────────────
 
-const RESOURCE_DESC = {
+const _RESOURCE_DESC_IT = {
   pietra:   'Pietra · Raccolta dalla Cava. Usata per costruire e forgiare.',
   acqua:    'Acqua · Raccolta dal Lago. Ingrediente base per cibo e costruzioni.',
   grano:    'Grano · Raccolto dal Campo. Ingrediente fondamentale per il cibo.',
@@ -30,6 +33,8 @@ const RESOURCE_DESC = {
   mattoni:  'Mattoni · Materiale da costruzione avanzato. Si produce al Fabbro o in Falegnameria.',
   lingotti: 'Lingotti · Metallo raffinato. Si produce al Fabbro.',
 };
+
+const _getResDesc = (r) => resDesc(r) ?? _RESOURCE_DESC_IT[r] ?? '';
 
 let _cb           = {};
 let _resHexKey    = null;
@@ -64,7 +69,7 @@ function _populateResearchModal(state) {
 
   const searchInput = document.createElement('input');
   searchInput.type        = 'search';
-  searchInput.placeholder = '🔍 Cerca ricerca…';
+  searchInput.placeholder = t('research.search.ph');
   searchInput.className   = 'research-search';
   searchInput.setAttribute('autocomplete', 'off');
 
@@ -95,20 +100,20 @@ function _populateResearchModal(state) {
 
     const card = document.createElement('div');
     card.className = `research-card ${done ? 'completed' : ''}`;
-    card.dataset.label = recipe.label.toLowerCase();
+    card.dataset.label = recipeLabel(id).toLowerCase();
 
     // Extra info for permit types
     let extraInfo = '';
     if (isPermit) {
       const built   = state.buildCount?.[recipe.unlocks] ?? 0;
       const pending = permits[recipe.unlocks] ?? 0;
-      if (pending > 0)  extraInfo = `<div class="research-permit-badge">✋ ${pending} permesso disponibile</div>`;
-      else if (built > 0) extraInfo = `<div class="research-permit-badge dim">${built} già costruit${built>1?'e':'a'} — costo aumentato</div>`;
+      if (pending > 0)  extraInfo = `<div class="research-permit-badge">${t('research.permit.avail', {n: pending})}</div>`;
+      else if (built > 0) extraInfo = `<div class="research-permit-badge dim">${t('research.permit.built', {n: built, s: built>1?'e':'a'})}</div>`;
     }
 
     card.innerHTML =
-      `<div class="research-card-name">${recipe.label}</div>` +
-      `<div class="research-card-desc">${recipe.desc}</div>` +
+      `<div class="research-card-name">${recipeLabel(id)}</div>` +
+      `<div class="research-card-desc">${recipeDesc(id)}</div>` +
       extraInfo +
       `<div class="research-card-meta">
         <span>${costStr}</span>
@@ -117,10 +122,10 @@ function _populateResearchModal(state) {
 
     if (!done) {
       let btnLabel;
-      if (inProgress)      btnLabel = '🔬 In corso...';
-      else if (hexActive)  btnLabel = '⚙ Hex già occupato';
-      else if (!affordable) btnLabel = '🔒 Risorse insufficienti';
-      else                 btnLabel = '▶ Avvia ricerca';
+      if (inProgress)      btnLabel = t('research.inprogress');
+      else if (hexActive)  btnLabel = t('research.busy');
+      else if (!affordable) btnLabel = t('research.locked');
+      else                 btnLabel = t('research.start');
 
       const btn = _makeBtn(btnLabel, 'research-card-btn',
         () => {
@@ -149,14 +154,10 @@ function _populateResearchModal(state) {
 
 // ── Craft modal ───────────────────────────────────────────────────────────────
 
-const CRAFT_MODAL_TITLES = {
-  cucina:'🍳 Cucina', fabbro:'🔨 Fabbro', falegnameria:'🪚 Falegnameria', caccia:'🎯 Caccia',
-};
-
 export function openCraftModal(hexKey, hexType, state) {
   _craftHexKey  = hexKey;
   _craftHexType = hexType;
-  document.getElementById('craft-modal-title').textContent = CRAFT_MODAL_TITLES[hexType] ?? '🔨 Ricette';
+  document.getElementById('craft-modal-title').textContent = craftModalTitle(hexType);
   _populateCraftModal(state);
   document.getElementById('craft-modal').classList.remove('hidden');
 }
@@ -181,17 +182,19 @@ function _populateCraftModal(state) {
     const costStr = hasInputs
       ? _costHtml(recipe.inputs) + ' → ' + outStr
       : '→ ' + outStr;
+    const clabel = craftLabel(_craftHexType, rid);
+    const cdesc  = craftDesc(_craftHexType, rid);
 
     card.innerHTML =
-      `<div class="research-card-name">${recipe.label}</div>` +
-      (recipe.desc ? `<div class="research-card-desc">${recipe.desc}</div>` : '') +
+      `<div class="research-card-name">${clabel}</div>` +
+      (cdesc ? `<div class="research-card-desc">${cdesc}</div>` : '') +
       `<div class="research-card-meta">
         <span>${costStr}</span>
         <span class="meta-time">⏱ ${recipe.time}s</span>
       </div>`;
 
     const btn = _makeBtn(
-      affordable ? '▶ Avvia' : '🔒 Insufficiente',
+      affordable ? t('craft.start') : t('craft.locked'),
       'research-card-btn',
       () => { _cb.onStartCraft?.(_craftHexKey, rid); closeCraftModal(); updateUI(); },
       !affordable
@@ -236,8 +239,8 @@ function _populateBuildModal() {
     if (PERMIT_TYPES.has(type)) {
       const p = state.research?.permits?.[type] ?? 0;
       const n = state.buildCount?.[type] ?? 0;
-      if (p > 1) permitBadge = `<div class="build-card-permit">${p} permessi</div>`;
-      if (n > 0) permitBadge += `<div class="build-card-permit dim">${n} già costruit${n>1?'e':'a'}</div>`;
+      if (p > 1) permitBadge = `<div class="build-card-permit">${p} ${t('build.permits')}</div>`;
+      if (n > 0) permitBadge += `<div class="build-card-permit dim">${t('build.built', {s: n>1?'e':'a'})} (${n})</div>`;
     }
 
     const card = document.createElement('div');
@@ -245,13 +248,13 @@ function _populateBuildModal() {
 
     card.innerHTML =
       `<div class="build-card-icon">${BUILD_ICONS[type] ?? '🏗'}</div>` +
-      `<div class="build-card-name">${HEX_LABEL[type] ?? type}</div>` +
+      `<div class="build-card-name">${hexLabel(type)}</div>` +
       `<div class="build-card-cost">${costStr}</div>` +
       permitBadge;
 
     const btn = document.createElement('button');
     btn.className   = 'build-card-btn';
-    btn.textContent = affordable ? 'Costruisci' : '🔒 Insufficiente';
+    btn.textContent = affordable ? t('build.btn') : t('build.locked');
     btn.disabled    = !affordable;
     btn.addEventListener('click', () => {
       _cb.onBuild?.(_buildHexQ, _buildHexR, type);
@@ -270,16 +273,6 @@ function _populateBuildModal() {
 
 // ── Hex action modal ──────────────────────────────────────────────────────────
 
-const HEX_MODAL_LABELS = {
-  starter:      '🏘 Villaggio',
-  ricerca:      '🔬 Ricerca',
-  cucina:       '🍳 Cucina',
-  fabbro:       '🔨 Fabbro',
-  falegnameria: '🪚 Falegnameria',
-  caccia:       '🎯 Caccia',
-  casa:         '🏠 Casa',
-  ospedale:     '🏥 Ospedale',
-};
 
 export function openHexModal(key) {
   _hexModalKey = key;
@@ -303,7 +296,7 @@ function _populateHexModal(state) {
   if (hex.owned) {
     const level    = hex.level ?? 1;
     const levelTag = level > 1 ? ` <span class="hex-level-badge">Lvl ${level}</span>` : '';
-    titleEl.innerHTML = (HEX_MODAL_LABELS[hex.type] ?? (HEX_LABEL[hex.type] ?? hex.type)) + levelTag;
+    titleEl.innerHTML = (hexModalLabel(hex.type) ?? hexLabel(hex.type)) + levelTag;
     _renderOwnedHex(container, hex, _hexModalKey, state);
 
     // Demolish button (not for starter)
@@ -312,9 +305,9 @@ function _populateHexModal(state) {
       sep.className = 'panel-sep';
       container.appendChild(sep);
 
-      container.appendChild(_makeBtn('🗑 Demolisci esagono', 'action-btn danger-action',
+      container.appendChild(_makeBtn(t('panel.demolish.btn'), 'action-btn danger-action',
         () => {
-          if (confirm(`Demolire ${HEX_LABEL[hex.type] ?? hex.type}? Riceverai il 40% delle risorse.`)) {
+          if (confirm(`${t('confirm.demolish')} ${hexLabel(hex.type)}${t('panel.demolish.mid')}`)) {
             const refund = _cb.onDemolish?.(_hexModalKey);
             closeHexModal();
           }
@@ -322,7 +315,7 @@ function _populateHexModal(state) {
       ));
     }
   } else if (hex.purchasable) {
-    titleEl.textContent = '🏗 Territorio inesplorato';
+    titleEl.textContent = t('panel.unknown');
     _renderBuildMenu(container, hex, _hexModalKey, state);
   }
 }
@@ -379,15 +372,24 @@ export function buildUI(callbacks) {
       }
     });
 
+  _buildResourceList();
+}
+
+export function rebuildResourceList() {
+  _buildResourceList();
+}
+
+function _buildResourceList() {
   const list = document.getElementById('resource-list');
+  if (!list) return;
   list.innerHTML = '';
   for (const r of RESOURCE_LIST) {
     const div = document.createElement('div');
     div.className = 'resource-row';
-    div.title = RESOURCE_DESC[r] ?? '';
+    div.title = _getResDesc(r);
     div.innerHTML =
       `<span class="res-icon">${RESOURCE_ICON[r]}</span>` +
-      `<span class="res-name">${RESOURCE_LABEL[r]}</span>` +
+      `<span class="res-name">${resLabel(r)}</span>` +
       `<span class="res-amount" id="res-amt-${r}">0</span>`;
     list.appendChild(div);
   }
@@ -485,7 +487,7 @@ function _lightTickHexModal(state) {
       const bar  = document.querySelector(`[data-healbar="${w.id}"]`);
       const time = document.querySelector(`[data-healtime="${w.id}"]`);
       if (bar)  bar.style.width = Math.min(100, Math.round(((w.healElapsed ?? 0) / healTotal) * 100)) + '%';
-      if (time) time.textContent = Math.max(0, Math.round(healTotal - (w.healElapsed ?? 0))) + 's rimanenti';
+      if (time) time.textContent = Math.max(0, Math.round(healTotal - (w.healElapsed ?? 0))) + t('time.remaining');
     }
     return;
   }
@@ -500,7 +502,7 @@ function _lightTickHexModal(state) {
       const pct    = Math.min(100, Math.round((ra.elapsed / total) * 100));
       const remSec = Math.max(0, Math.round(total - ra.elapsed));
       bar.style.width  = pct + '%';
-      time.textContent = remSec + 's rimanenti';
+      time.textContent = remSec + t('time.remaining');
     }
     return;
   }
@@ -516,7 +518,7 @@ function _lightTickHexModal(state) {
         const pct    = Math.min(100, Math.round((ca.elapsed / recipe.time) * 100));
         const remSec = Math.max(0, Math.round(recipe.time - ca.elapsed));
         bar.style.width  = pct + '%';
-        time.textContent = remSec + 's rimanenti';
+        time.textContent = remSec + t('time.remaining');
       }
     }
     return;
@@ -524,34 +526,29 @@ function _lightTickHexModal(state) {
 
   if (hex.type !== 'starter') return; // only village has dynamic worker rows
 
-  const STATUS_LABEL = {
-    idle:'In attesa', going:'In viaggio', returning:'In rientro',
-    researching:'In ricerca', healing:'In cura', crafting:'Al lavoro',
-  };
-
   for (const w of getWorkers()) {
     // Status text
     const stEl = document.querySelector(`[data-wstatus="${w.id}"]`);
     if (stEl) {
       const dest = w.targetHexKey && state.hexes[w.targetHexKey]
-        ? ` → ${HEX_LABEL[state.hexes[w.targetHexKey].type] ?? '?'}` : '';
-      stEl.textContent = (STATUS_LABEL[w.status] ?? w.status) + dest;
+        ? ` → ${hexLabel(state.hexes[w.targetHexKey].type)}` : '';
+      stEl.textContent = (t(`worker.${w.status}`) || w.status) + dest;
     }
     // Recall button
     const rb = document.querySelector(`button[data-action="recall"][data-worker-id="${w.id}"]`);
     if (rb) {
       const returning = w.status === 'returning';
       rb.disabled     = returning;
-      rb.textContent  = returning ? '↩…' : '↩ Richiama';
-      rb.title        = returning ? 'Già in rientro' : 'Richiama al villaggio';
+      rb.textContent  = returning ? t('worker.recall.ing') : t('worker.recall.btn');
+      rb.title        = returning ? t('worker.recall.ing.title') : t('worker.recall.title');
     }
     // Auto button label
     const ab = document.querySelector(`button[data-action="auto"][data-worker-id="${w.id}"]`);
     if (ab) {
-      ab.textContent = w.auto ? '🔄 Auto ON' : '🔄 Auto';
+      ab.textContent = w.auto ? t('worker.auto.on') : t('worker.auto');
       ab.className   = `worker-action-btn ${w.auto ? 'active' : ''}`;
       ab.disabled    = w.sick;
-      ab.title       = w.sick ? 'Non disponibile mentre il lavoratore è malato' : '';
+      ab.title       = w.sick ? t('worker.auto.sick.title') : '';
     }
     // Status badges
     const bb = document.querySelector(`[data-wbadges="${w.id}"]`);
@@ -576,12 +573,12 @@ function _renderConsumptions(state) {
 
   const entries = Object.entries(pending).filter(([, n]) => n > 0);
   if (entries.length === 0) {
-    el.innerHTML = '<span class="consume-empty">Nessun consumo in corso</span>';
+    el.innerHTML = `<span class="consume-empty">${t('consume.empty')}</span>`;
     return;
   }
 
   el.innerHTML = entries
-    .map(([r, n]) => `<span class="consume-item"><span class="consume-minus">-${n}</span> ${RESOURCE_ICON[r] ?? r} ${RESOURCE_LABEL[r] ?? r}</span>`)
+    .map(([r, n]) => `<span class="consume-item"><span class="consume-minus">-${n}</span> ${RESOURCE_ICON[r] ?? r} ${resLabel(r)}</span>`)
     .join('');
 }
 
@@ -598,9 +595,9 @@ function _makeBtn(text, cls, onClick, disabled = false) {
 
 function _workerBadgesHtml(w) {
   const badges = [];
-  if (w.sick)            badges.push(`<span class="wbadge wbadge-sick">🤒 Malato</span>`);
-  if (w.resourcePenalty) badges.push(`<span class="wbadge wbadge-slow">🐌 Rallentato</span>`);
-  if (w.auto)            badges.push(`<span class="wbadge wbadge-auto">🔄 Auto</span>`);
+  if (w.sick)            badges.push(`<span class="wbadge wbadge-sick">${t('worker.sick.badge')}</span>`);
+  if (w.resourcePenalty) badges.push(`<span class="wbadge wbadge-slow">${t('worker.slow.badge')}</span>`);
+  if (w.auto)            badges.push(`<span class="wbadge wbadge-auto">${t('worker.auto')}</span>`);
   return badges.join('');
 }
 
@@ -637,12 +634,12 @@ function _renderOwnedHex(container, hex, selKey, state) {
 function _panelGather(container, hex, selKey, state) {
   const { q, r } = keyToHex(selKey);
   const yieldMap  = computeHexYield(hex);
-  const yieldStr  = Object.entries(yieldMap).map(([res, n]) => `${n} ${RESOURCE_LABEL[res]}`).join(', ');
+  const yieldStr  = Object.entries(yieldMap).map(([res, n]) => `${n} ${resLabel(res)}`).join(', ');
   const level     = hex.level ?? 1;
 
   const info = document.createElement('div');
   info.className = 'hex-info-type';
-  info.textContent = `Produzione: ${yieldStr}`;
+  info.textContent = `${t('panel.gather.yield')}: ${yieldStr}`;
   container.appendChild(info);
 
   // Consumption preview (lake/pasture are random — show both options)
@@ -653,8 +650,8 @@ function _panelGather(container, hex, selKey, state) {
   if (consumeEntries.length > 0) {
     const consumeEl = document.createElement('div');
     consumeEl.className = 'hex-consume-info';
-    const parts = consumeEntries.map(([r, n]) => `-${n} ${RESOURCE_ICON[r] ?? r} ${RESOURCE_LABEL[r] ?? r}`);
-    consumeEl.textContent = `Consumo: ${parts.join(isRandom ? ' o ' : ', ')}`;
+    const parts = consumeEntries.map(([r, n]) => `-${n} ${RESOURCE_ICON[r] ?? r} ${resLabel(r)}`);
+    consumeEl.textContent = `${t('panel.gather.consume')}: ${parts.join(isRandom ? t('panel.gather.or') : ', ')}`;
     container.appendChild(consumeEl);
   }
 
@@ -664,7 +661,7 @@ function _panelGather(container, hex, selKey, state) {
   if (busy) {
     const hint = document.createElement('div');
     hint.className = 'hint';
-    hint.textContent = 'Lavoratore già assegnato.';
+    hint.textContent = t('panel.gather.busy');
     container.appendChild(hint);
   }
 
@@ -682,7 +679,7 @@ function _panelGather(container, hex, selKey, state) {
       const canAff   = canAfford(nextUpgrade.buildCost);
       const costDesc = _costStr(nextUpgrade.buildCost);
       container.appendChild(_makeBtn(
-        `⬆ Potenzia a Lvl ${nextUpgrade.level} — ${costDesc}`,
+        `${t('panel.upgrade.btn')} ${nextUpgrade.level} — ${costDesc}`,
         'action-btn' + (canAff ? '' : ' secondary'),
         () => { _cb.onUpgrade?.(_hexModalKey); closeHexModal(); },
         !canAff
@@ -690,7 +687,7 @@ function _panelGather(container, hex, selKey, state) {
     } else {
       const hint = document.createElement('div');
       hint.className = 'hint';
-      hint.textContent = `Ricerca "${HEX_LABEL[hex.type]} Livello ${nextUpgrade.level}" per sbloccare il potenziamento.`;
+      hint.textContent = `${t('panel.upgrade.locked')} "${hexLabel(hex.type)} Level ${nextUpgrade.level}" ${t('panel.upgrade.hint2')}`;
       container.appendChild(hint);
     }
   }
@@ -708,18 +705,11 @@ function _panelVillaggio(container, state) {
 
     const icon = w.sick ? '🤒' : w.type === 'evolved' ? '⭐' : '👷';
 
-    const statusText = {
-      idle:        'In attesa',
-      going:       'In viaggio',
-      returning:   'In rientro',
-      researching: 'In ricerca',
-      healing:     'In cura',
-      crafting:    'Al lavoro',
-    }[w.status] ?? w.status;
+    const statusText = t(`worker.${w.status}`) || w.status;
 
     let dest = '';
     if (w.targetHexKey && state.hexes[w.targetHexKey]) {
-      dest = ` → ${HEX_LABEL[state.hexes[w.targetHexKey].type] ?? '?'}`;
+      dest = ` → ${hexLabel(state.hexes[w.targetHexKey].type)}`;
     }
 
     // ── Top row: icon · name · [actions] ──────────────────────────────────
@@ -727,7 +717,7 @@ function _panelVillaggio(container, state) {
     topRow.className = 'worker-row-top';
     topRow.innerHTML =
       `<span class="worker-icon">${icon}</span>` +
-      `<span class="worker-label">Lavoratore ${workerLabel(w.id)}</span>`;
+      `<span class="worker-label">${t('worker.name')} ${workerLabel(w.id)}</span>`;
 
     const actions = document.createElement('div');
     actions.className = 'worker-row-actions';
@@ -737,8 +727,8 @@ function _panelVillaggio(container, state) {
       const returning = w.status === 'returning';
       const recallBtn = document.createElement('button');
       recallBtn.className = 'worker-action-btn';
-      recallBtn.textContent = returning ? '↩…' : '↩ Richiama';
-      recallBtn.title    = returning ? 'Già in rientro' : 'Richiama al villaggio';
+      recallBtn.textContent = returning ? t('worker.recall.ing') : t('worker.recall.btn');
+      recallBtn.title    = returning ? t('worker.recall.ing.title') : t('worker.recall.title');
       recallBtn.disabled = returning;
       recallBtn.dataset.action   = 'recall';
       recallBtn.dataset.workerId = w.id;
@@ -748,9 +738,9 @@ function _panelVillaggio(container, state) {
     if (canAuto) {
       const autoBtn = document.createElement('button');
       autoBtn.className = `worker-action-btn ${w.auto ? 'active' : ''}`;
-      autoBtn.textContent = w.auto ? '🔄 Auto ON' : '🔄 Auto';
+      autoBtn.textContent = w.auto ? t('worker.auto.on') : t('worker.auto');
       autoBtn.disabled = w.sick;
-      autoBtn.title = w.sick ? 'Non disponibile mentre il lavoratore è malato' : '';
+      autoBtn.title = w.sick ? t('worker.auto.sick.title') : '';
       autoBtn.dataset.action   = 'auto';
       autoBtn.dataset.workerId = w.id;
       actions.appendChild(autoBtn);
@@ -760,7 +750,7 @@ function _panelVillaggio(container, state) {
       const enough = canAfford({ lingotti:3 });
       const evBtn  = document.createElement('button');
       evBtn.className = 'worker-action-btn evolve';
-      evBtn.textContent = 'Evolvi (3🥇)';
+      evBtn.textContent = t('worker.evolve.btn');
       evBtn.disabled = !enough;
       evBtn.dataset.action   = 'evolve';
       evBtn.dataset.workerId = w.id;
@@ -792,13 +782,13 @@ function _panelRicerca(container, hex, selKey, state) {
   if (goingWorker && !resWorker) {
     const hint = document.createElement('div');
     hint.className = 'hint';
-    hint.textContent = goingWorker.status === 'going' ? 'Ricercatore in viaggio…' : 'Ricercatore in rientro…';
+    hint.textContent = goingWorker.status === 'going' ? t('panel.ricerca.going') : t('panel.ricerca.returning');
     container.appendChild(hint);
     return;
   }
 
   if (resWorker) {
-    container.appendChild(_makeBtn('↩ Richiama lavoratore', 'action-btn secondary',
+    container.appendChild(_makeBtn(t('panel.ricerca.recall'), 'action-btn secondary',
       () => { recallWorker(resWorker.id); updateUI(); }
     ));
     const sep = document.createElement('hr');
@@ -815,11 +805,11 @@ function _panelRicerca(container, hex, selKey, state) {
     prog.innerHTML =
       `<div class="research-name">🔬 ${recipe.label}</div>` +
       `<div class="research-bar-wrap"><div class="research-bar" data-resbar style="width:${pct}%"></div></div>` +
-      `<div class="research-time" data-restime>${remSec}s rimanenti</div>`;
+      `<div class="research-time" data-restime>${remSec}${t('time.remaining')}</div>`;
     prog.dataset.resTotal = recipe.time;
     container.appendChild(prog);
   } else {
-    container.appendChild(_makeBtn('🔬 Apri Albero della Ricerca', 'action-btn',
+    container.appendChild(_makeBtn(t('panel.ricerca.open'), 'action-btn',
       () => { closeHexModal(); openResearchModal(selKey, state); }
     ));
   }
@@ -834,13 +824,13 @@ function _panelCraftStation(container, hex, selKey, state) {
   if (going && !worker) {
     const hint = document.createElement('div');
     hint.className = 'hint';
-    hint.textContent = going.status === 'going' ? 'Lavoratore in viaggio…' : 'Lavoratore in rientro…';
+    hint.textContent = going.status === 'going' ? t('panel.craft.going') : t('panel.craft.returning');
     container.appendChild(hint);
     return;
   }
 
   if (worker) {
-    container.appendChild(_makeBtn('↩ Richiama lavoratore', 'action-btn secondary',
+    container.appendChild(_makeBtn(t('panel.craft.recall'), 'action-btn secondary',
       () => { recallWorker(worker.id); updateUI(); }
     ));
   }
@@ -856,13 +846,13 @@ function _panelCraftStation(container, hex, selKey, state) {
       prog.innerHTML =
         `<div class="research-name">⚙ ${recipe.label}</div>` +
         `<div class="research-bar-wrap"><div class="research-bar" data-craftbar style="width:${pct}%"></div></div>` +
-        `<div class="research-time" data-crafttime>${remSec}s rimanenti</div>`;
+        `<div class="research-time" data-crafttime>${remSec}${t('time.remaining')}</div>`;
       prog.dataset.craftTotal = recipe.time;
       container.appendChild(prog);
     }
   } else {
     const icon = { cucina:'🍳', fabbro:'🔨', falegnameria:'🪚', caccia:'🎯' }[hex.type];
-    container.appendChild(_makeBtn(`${icon} Scegli ricetta`, 'action-btn',
+    container.appendChild(_makeBtn(`${icon} ${t('panel.craft.choose')}`, 'action-btn',
       () => { closeHexModal(); openCraftModal(selKey, hex.type, state); }
     ));
   }
@@ -873,8 +863,8 @@ function _panelCasa(container, hex, selKey, state) {
   const info = document.createElement('div');
   info.className = 'hex-info-type';
   info.textContent = level >= 2
-    ? 'Casa potenziata — 2 lavoratori generati.'
-    : 'Ha aggiunto 1 lavoratore al villaggio.';
+    ? t('panel.casa.upgraded')
+    : t('panel.casa.normal');
   container.appendChild(info);
 
   // Upgrade section
@@ -891,7 +881,7 @@ function _panelCasa(container, hex, selKey, state) {
       const canAff   = canAfford(nextUpgrade.buildCost);
       const costDesc = _costStr(nextUpgrade.buildCost);
       container.appendChild(_makeBtn(
-        `⬆ Potenzia a Livello 2 — ${costDesc}`,
+        `${t('panel.casa.upgrade.btn')} — ${costDesc}`,
         'action-btn' + (canAff ? '' : ' secondary'),
         () => { _cb.onUpgrade?.(selKey); closeHexModal(); },
         !canAff
@@ -899,7 +889,7 @@ function _panelCasa(container, hex, selKey, state) {
     } else {
       const hint = document.createElement('div');
       hint.className = 'hint';
-      hint.textContent = 'Ricerca "Casa Livello 2" per sbloccare il potenziamento (+1 lavoratore).';
+      hint.textContent = t('panel.casa.hint');
       container.appendChild(hint);
     }
   }
@@ -921,9 +911,9 @@ function _panelOspedale(container, hex, selKey, state) {
       div.dataset.healId    = w.id;
       div.dataset.healTotal = healTotal;
       div.innerHTML =
-        `<div class="research-name">🤒 Lavoratore ${workerLabel(w.id)} in cura</div>` +
+        `<div class="research-name">🤒 ${t('worker.name')} ${workerLabel(w.id)} ${t('panel.hosp.healing')}</div>` +
         `<div class="research-bar-wrap"><div class="research-bar research-bar--heal" data-healbar="${w.id}" style="width:${pct}%"></div></div>` +
-        `<div class="research-time" data-healtime="${w.id}">${remSec}s rimanenti</div>`;
+        `<div class="research-time" data-healtime="${w.id}">${remSec}${t('time.remaining')}</div>`;
       container.appendChild(div);
     }
   }
@@ -931,7 +921,7 @@ function _panelOspedale(container, hex, selKey, state) {
   if (sickIdle.length === 0 && healing.length === 0) {
     const info = document.createElement('div');
     info.className = 'hex-info-type';
-    info.textContent = '✅ Nessun malato da curare.';
+    info.textContent = t('panel.hosp.empty');
     container.appendChild(info);
     return;
   }
@@ -945,10 +935,10 @@ function _renderBuildMenu(container, hex, selKey, state) {
 
   const info = document.createElement('div');
   info.className = 'hex-info-type';
-  info.textContent = 'Territorio disponibile per la costruzione.';
+  info.textContent = t('panel.build.info');
   container.appendChild(info);
 
-  container.appendChild(_makeBtn('🏗 Scegli cosa costruire', 'buy-btn',
+  container.appendChild(_makeBtn(t('panel.build.btn'), 'buy-btn',
     () => { closeHexModal(); openBuildModal(q, r); }
   ));
 }

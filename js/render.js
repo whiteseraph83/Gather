@@ -1,8 +1,9 @@
-import { HEX_SIZE, HEX_COLOR, HEX_LABEL, RESEARCH_GEN_TIME, RESEARCH_RECIPES, workerLabel } from './config.js';
+import { HEX_SIZE, HEX_COLOR, RESEARCH_GEN_TIME, RESEARCH_RECIPES, workerLabel } from './config.js';
 import { hexToPixel, hexPath, hexKey } from './hex.js';
 import { getWorkers, sickHealTime } from './workers.js';
 import { getState } from './state.js';
 import { isGearModeActive } from './gearMode.js';
+import { hexLabel } from './i18n.js';
 
 // ── Visual constants ──────────────────────────────────────────────────────────
 
@@ -451,7 +452,7 @@ function _drawLabel(ctx, cx, cy, type) {
   ctx.fillText(_ICONS[type] ?? '', cx, cy - DS*0.10);
   ctx.fillStyle = 'rgba(255,255,255,0.90)';
   ctx.font      = `600 ${Math.round(DS*0.17)}px 'Palatino Linotype',Palatino,Georgia,serif`;
-  ctx.fillText(HEX_LABEL[type] ?? type, cx, cy + DS*0.30);
+  ctx.fillText(hexLabel(type), cx, cy + DS*0.30);
   ctx.restore();
 }
 

@@ -7,12 +7,14 @@ import { initWorkers, updateWorkers, dispatchWorker, getWorkers } from './worker
 import { addResources, canAfford, deductResources } from './resources.js';
 import { buildHex, upgradeHex, demolishHex, getPermitResearchCost } from './economy.js';
 import { render, invalidateBg } from './render.js';
-import { buildUI, updateUI, openHexModal, openBuildModal, openLevelUpModal } from './ui.js';
+import { buildUI, updateUI, openHexModal, openBuildModal, openLevelUpModal, rebuildResourceList } from './ui.js';
 import { initInput } from './input.js';
 import { hexToPixel } from './hex.js';
 import { generateBonusChoices } from './achievements.js';
-import { DAY_DURATION, applyTax, initSunWidget, updateSunWidget } from './day.js';
+import { DAY_DURATION, applyTax, initSunWidget, updateSunWidget, refreshDayText } from './day.js';
 import { isGearModeActive, toggleGearMode, setGearMode } from './gearMode.js';
+import { t, hexLabel, craftLabel, recipeLabel, getLang, setLang, applyLangDOM } from './i18n.js';
+import { shouldShowTutorial, openTutorial } from './tutorial.js';
 
 const SIDEBAR_W = 280;
 
@@ -90,14 +92,14 @@ function init() {
 
   buildUI({
     onHarvest(q, r) {
-      if (!dispatchWorker(q, r)) showToast('⚠ Nessun lavoratore disponibile');
+      if (!dispatchWorker(q, r)) showToast(t('toast.no_worker'));
       else saveGame();
       updateUI();
     },
     onBuild(q, r, type) {
       if (buildHex(q, r, type)) {
         saveGame();
-        showToast(`✔ ${HEX_LABEL_CAP[type] ?? type} costruita!`);
+        showToast(`✔ ${hexLabel(type)} ${t('toast.built')}`);
       }
       updateUI();
     },
@@ -107,11 +109,11 @@ function init() {
       if (!hex) return;
       const recipe = CRAFT_RECIPES[hex.type]?.[recipeId];
       if (!recipe) return;
-      if (recipe.inputs && !canAfford(recipe.inputs)) { showToast('✘ Ingredienti insufficienti'); return; }
+      if (recipe.inputs && !canAfford(recipe.inputs)) { showToast(t('toast.craft.bad')); return; }
       if (recipe.inputs) deductResources(recipe.inputs);
       hex.craftActive = { recipeId, elapsed: 0 };
       saveGame();
-      showToast(`⚙ Avviato: ${recipe.label}`);
+      showToast(`${t('toast.craft.start')} ${craftLabel(hex.type, recipeId)}`);
       updateUI();
     },
     onStartResearch(recipeId, hexKey) {
@@ -125,15 +127,15 @@ function init() {
         ? getPermitResearchCost(recipeId, st)
         : recipe.cost;
 
-      if (!canAfford(cost)) { showToast('✘ Risorse insufficienti'); return; }
+      if (!canAfford(cost)) { showToast(t('toast.res.bad')); return; }
       deductResources(cost);
       st.research.active.push({ recipeId, elapsed: 0, hexKey });
       saveGame();
-      showToast(`🔬 Ricerca avviata: ${recipe.label}`);
+      showToast(`${t('toast.research.start')} ${recipeLabel(recipeId)}`);
       updateUI();
     },
     onHealWorker(q, r) {
-      if (!dispatchWorker(q, r)) showToast('⚠ Nessun malato da inviare');
+      if (!dispatchWorker(q, r)) showToast(t('toast.no_sick_send'));
       else saveGame();
       updateUI();
     },
@@ -143,9 +145,9 @@ function init() {
         saveGame();
         const st  = getState();
         const hex = st.hexes[hexKey];
-        showToast(`⬆ ${HEX_LABEL_CAP[hex?.type] ?? 'Hex'} potenziata a Lvl ${hex?.level ?? '?'}!`);
+        showToast(`⬆ ${hexLabel(hex?.type ?? '')} ${t('toast.upgrade.level')} ${hex?.level ?? '?'}!`);
       } else {
-        showToast('✘ Impossibile potenziare');
+        showToast(t('toast.upgrade.fail'));
       }
       updateUI();
     },
@@ -154,7 +156,7 @@ function init() {
       if (refund !== false) {
         saveGame();
         const parts = Object.entries(refund).map(([r, n]) => `${RESOURCE_ICON[r] ?? r} +${n}`);
-        showToast(parts.length ? `🗑 Demolito. Recuperato: ${parts.join(' ')}` : '🗑 Esagono demolito.');
+        showToast(parts.length ? `${t('toast.demolish.done')} ${parts.join(' ')}` : t('toast.demolish.only'));
         updateUI();
       }
       return refund;
@@ -182,9 +184,30 @@ function init() {
   sidebarToggle.addEventListener('click', () => sidebarEl.classList.contains('open') ? closeSidebar() : openSidebar());
   sidebarBackdrop.addEventListener('click', closeSidebar);
 
+  // Language toggle
+  document.querySelectorAll('.lang-btn').forEach(btn => {
+    if (btn.dataset.lang === getLang()) btn.classList.add('active');
+    else btn.classList.remove('active');
+    btn.addEventListener('click', () => {
+      setLang(btn.dataset.lang);
+      document.documentElement.lang = btn.dataset.lang;
+      document.querySelectorAll('.lang-btn').forEach(b =>
+        b.classList.toggle('active', b.dataset.lang === btn.dataset.lang)
+      );
+      applyLangDOM();
+      rebuildResourceList();
+      refreshDayText();
+      updateUI(true);
+    });
+  });
+
+  // Apply initial lang to DOM
+  applyLangDOM();
+  document.documentElement.lang = getLang();
+
   // Gear mode button
   const gearBtn = document.getElementById('gear-mode-btn');
-  gearBtn.title = 'Modalità gestione — clicca gli hex per aprire la modal';
+  gearBtn.title = t('gear.title');
   gearBtn.addEventListener('click', () => {
     const active = toggleGearMode();
     gearBtn.classList.toggle('active', active);
@@ -192,7 +215,7 @@ function init() {
   });
 
   document.getElementById('reset-btn').addEventListener('click', () => {
-    if (confirm('Vuoi davvero ricominciare? Tutti i progressi andranno persi.')) {
+    if (confirm(t('confirm.reset'))) {
       resetGame();
       location.reload();
     }
@@ -201,6 +224,9 @@ function init() {
   setInterval(saveGame, AUTOSAVE_MS);
   updateUI();
   requestAnimationFrame(() => { resizeCanvas(); requestAnimationFrame(loop); });
+
+  // Show tutorial on first visit (deferred by 800ms to let the UI settle)
+  if (shouldShowTutorial()) setTimeout(openTutorial, 800);
 }
 
 
@@ -223,7 +249,7 @@ function applyBonus(choice) {
   }
 }
 
-const HEX_LABEL_CAP = {
+const HEX_LABEL_CAP = { // kept for fallback only, use hexLabel() instead
   field:'Campo', quarry:'Cava', lake:'Lago', forest:'Bosco', pasture:'Pascolo',
   desert:'Deserto', mine:'Miniera', ricerca:'Ricerca', cucina:'Cucina',
   fabbro:'Fabbro', casa:'Casa', ospedale:'Ospedale', falegnameria:'Falegnameria', caccia:'Caccia',
@@ -261,7 +287,7 @@ function onAction(q, r) {
 
   // Normal mode → dispatch diretto
   if (!dispatchWorker(q, r)) {
-    showToast(hex.type === 'ospedale' ? '⚠ Nessun malato da curare' : '⚠ Nessun lavoratore disponibile');
+    showToast(hex.type === 'ospedale' ? t('toast.no_sick') : t('toast.no_worker'));
   } else saveGame();
   updateUI(false);
 }
@@ -297,7 +323,7 @@ function loop(timestamp) {
         }
         saveGame(); showToast(_formatGains(payload, consume)); updateUI(false);
       },
-      (_id, label)   => { saveGame(); showToast(`✅ Ricerca completata: ${label}!`); updateUI(false); },
+      (_id, label)   => { saveGame(); showToast(`${t('toast.research.done')} ${label}!`); updateUI(false); },
       (_id, output)  => {
         const st = getState();
         if (!st.stats) st.stats = { totalCrafted:0, totalManaFound:0 };
@@ -328,11 +354,11 @@ function loop(timestamp) {
         st.day = (st.day ?? 1) + 1;
         const taxParts = Object.entries(tax).map(([r, n]) => `${n} ${RESOURCE_ICON[r] ?? r}`).join(', ');
         let msg = taxesPaid
-          ? `🌅 Giorno ${st.day}! Tasse pagate — scegli un bonus!`
-          : `🌅 Giorno ${st.day}! Tasse: ${taxParts}`;
+          ? `🌅 ${t('sidebar.day')} ${st.day}! ${t('toast.day.paid')}`
+          : `🌅 ${t('sidebar.day')} ${st.day}! ${t('toast.day.tax')} ${taxParts}`;
         if (!taxesPaid) {
           const sfParts = Object.entries(shortfall).map(([r, n]) => `${n} ${RESOURCE_ICON[r] ?? r}`).join(', ');
-          msg += ` (mancano: ${sfParts})`;
+          msg += ` ${t('toast.day.short')} ${sfParts})`;
         }
         showToast(msg);
         saveGame();

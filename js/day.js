@@ -8,7 +8,8 @@
 
 import { getState } from './state.js';
 import { deductResources } from './resources.js';
-import { RESOURCE_ICON, RESOURCE_LABEL } from './config.js';
+import { RESOURCE_ICON } from './config.js';
+import { resLabel } from './i18n.js';
 
 export const DAY_DURATION = 360; // seconds per in-game day
 
@@ -239,11 +240,15 @@ function _updateDayText(day) {
   const tax = computeTax(day);
   taxEl.innerHTML = Object.entries(tax)
     .map(([r, n]) => {
-      const icon  = RESOURCE_ICON[r]  ?? '';
-      const label = RESOURCE_LABEL[r] ?? r;
-      return `<span class="day-tax-item" data-taxres="${r}" data-taxamt="${n}"><span class="day-tax-amt">${n}</span>${icon} ${label}</span>`;
+      const icon  = RESOURCE_ICON[r] ?? '';
+      return `<span class="day-tax-item" data-taxres="${r}" data-taxamt="${n}"><span class="day-tax-amt">${n}</span>${icon} ${resLabel(r)}</span>`;
     })
     .join('');
+}
+
+/** Re-render the day/tax text with the current language (call on lang change). */
+export function refreshDayText() {
+  if (_lastDay > 0) _updateDayText(_lastDay);
 }
 
 /** Update green/normal colour of each tax row based on current resources. */

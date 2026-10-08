@@ -2,7 +2,7 @@
 // Update VERSION to match GAME_VERSION in js/config.js on every release.
 // Changing this string invalidates the old cache and forces all clients to reload.
 
-const VERSION = '1.32';
+const VERSION = '1.33';
 const CACHE   = `hexdomain-${VERSION}`;
 
 const ASSETS = [
@@ -25,6 +25,8 @@ const ASSETS = [
   './js/day.js',
   './js/gearMode.js',
   './js/achievements.js',
+  './js/i18n.js',
+  './js/tutorial.js',
 ];
 
 // Install: cache all assets immediately

@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="it">
+<html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
@@ -17,43 +17,48 @@
     <aside id="sidebar">
       <h1 class="game-title">Hex Domain</h1>
 
+      <div class="lang-toggle">
+        <button class="lang-btn active" data-lang="en">🇬🇧 EN</button>
+        <button class="lang-btn" data-lang="it">🇮🇹 IT</button>
+      </div>
+
       <section class="panel">
-        <h2>Popolazione</h2>
+        <h2 data-i18n="sidebar.population">Settlers</h2>
         <div class="stat-row">
-          <span>Totale</span><strong id="pop-total">1</strong>
+          <span data-i18n="sidebar.total">Total</span><strong id="pop-total">1</strong>
         </div>
         <div class="stat-row">
-          <span>Idle</span><strong id="workers-idle">1</strong>
+          <span data-i18n="sidebar.idle">Idle</span><strong id="workers-idle">1</strong>
         </div>
         <div class="stat-row">
-          <span>Occupati</span><strong id="workers-busy">0</strong>
+          <span data-i18n="sidebar.active">Active</span><strong id="workers-busy">0</strong>
         </div>
       </section>
 
       <section class="panel">
-        <h2>Risorse</h2>
+        <h2 data-i18n="sidebar.resources">Resources</h2>
         <div id="resource-list"></div>
       </section>
 
       <section class="panel day-panel">
         <h2>
-          Tasse giornaliere
-          <button class="info-btn" id="day-info-btn" aria-label="Informazioni">ℹ</button>
+          <span data-i18n="sidebar.tribute">Daily Tribute</span>
+          <button class="info-btn" id="day-info-btn" aria-label="Info">ℹ</button>
         </h2>
-        <div class="info-tooltip hidden" id="day-info-tooltip">
-          Al termine di ogni giornata vengono detratte le tasse. Se le paghi interamente ricevi un bonus a scelta tra 3 opzioni. Le tasse aumentano ogni giorno.
+        <div class="info-tooltip hidden" id="day-info-tooltip" data-i18n="sidebar.tooltip">
+          At the end of each day, tributes are collected. Pay in full to claim a boon from 3 choices. Tribute grows each day.
         </div>
         <div class="day-panel-body">
           <div class="day-sun-col">
             <div id="sun-widget"></div>
-            <div class="day-number-label">Giorno <strong id="day-number">1</strong></div>
+            <div class="day-number-label"><span data-i18n="sidebar.day">Day</span> <strong id="day-number">1</strong></div>
           </div>
           <div id="day-tax-list" class="day-tax-list"></div>
         </div>
       </section>
 
       <section class="panel">
-        <button id="reset-btn" class="danger-btn">↺ Nuova partita</button>
+        <button id="reset-btn" class="danger-btn" data-i18n="sidebar.newgame">↺ New Game</button>
       </section>
 
       <div class="sidebar-version" id="game-version"></div>
@@ -63,15 +68,33 @@
   <!-- Mini sun overlay — mobile only, top-left -->
   <div id="sun-mini" aria-hidden="true"></div>
 
-  <button id="gear-mode-btn" aria-label="Modalità gestione">⚙</button>
+  <button id="gear-mode-btn" aria-label="Management Mode" data-i18n-title="gear.title">⚙</button>
 
   <div id="toast"></div>
+
+  <!-- Tutorial modal -->
+  <div id="tutorial-modal" class="modal-overlay hidden">
+    <div class="modal-box tutorial-modal-box">
+      <div class="modal-header">
+        <span class="modal-title" id="tutorial-title">📖 How to Play</span>
+        <button id="tutorial-close-btn" class="modal-close">✕</button>
+      </div>
+      <div id="tutorial-content" class="modal-content tutorial-content"></div>
+      <div class="tutorial-footer">
+        <label class="tutorial-dont-show">
+          <input type="checkbox" id="tutorial-dont-show">
+          <span id="tutorial-dont-show-label">Don't show again</span>
+        </label>
+        <button id="tutorial-ok-btn" class="action-btn" id="tutorial-ok-btn">Got it!</button>
+      </div>
+    </div>
+  </div>
 
   <!-- Hex action modal -->
   <div id="hex-modal" class="modal-overlay hidden">
     <div class="modal-box hex-modal-box">
       <div class="modal-header">
-        <span class="modal-title" id="hex-modal-title">Esagono</span>
+        <span class="modal-title" id="hex-modal-title">Hex</span>
         <button id="hex-modal-close-btn" class="modal-close">✕</button>
       </div>
       <div id="hex-modal-content" class="modal-content hex-modal-content"></div>
@@ -82,7 +105,7 @@
   <div id="build-modal" class="modal-overlay hidden">
     <div class="modal-box">
       <div class="modal-header">
-        <span class="modal-title">🏗 Costruisci</span>
+        <span class="modal-title" data-i18n="modal.build">🏗 Build</span>
         <button id="build-modal-close-btn" class="modal-close">✕</button>
       </div>
       <div id="build-modal-content" class="modal-content build-modal-grid"></div>
@@ -93,7 +116,7 @@
   <div id="craft-modal" class="modal-overlay hidden">
     <div class="modal-box">
       <div class="modal-header">
-        <span class="modal-title" id="craft-modal-title">🔨 Ricette</span>
+        <span class="modal-title" id="craft-modal-title">🔨 Recipes</span>
         <button id="craft-modal-close-btn" class="modal-close">✕</button>
       </div>
       <div id="craft-modal-content" class="modal-content"></div>
@@ -104,7 +127,7 @@
   <div id="research-modal" class="modal-overlay hidden">
     <div class="modal-box">
       <div class="modal-header">
-        <span class="modal-title">🔬 Albero della Ricerca</span>
+        <span class="modal-title" data-i18n="modal.research">🔬 Arcane Arts</span>
         <button id="modal-close-btn" class="modal-close">✕</button>
       </div>
       <div id="research-modal-content" class="modal-content"></div>
@@ -114,9 +137,9 @@
   <div id="levelup-modal" class="modal-overlay hidden">
     <div class="modal-box levelup-modal-box">
       <div class="modal-header levelup-header">
-        <span class="modal-title">🌅 Tasse pagate — Giorno <span id="levelup-num">2</span></span>
+        <span class="modal-title"><span data-i18n="modal.levelup.prefix">🌅 Tribute Paid — Day</span> <span id="levelup-num">2</span></span>
       </div>
-      <p class="levelup-subtitle">Scegli un potenziamento:</p>
+      <p class="levelup-subtitle" data-i18n="modal.levelup.choose">Choose your boon:</p>
       <div id="levelup-modal-content" class="levelup-modal-content"></div>
     </div>
   </div>
@@ -124,11 +147,12 @@
   <!-- Update banner (shown when a new SW version activates) -->
   <div id="update-banner" style="display:none;position:fixed;top:0;left:0;right:0;z-index:9999;
        background:linear-gradient(90deg,#1a3a1a,#0d2010);border-bottom:1px solid #4caf70;
-       padding:10px 16px;display:none;align-items:center;gap:12px;font-size:13px;color:#a8d8a8;">
-    <span>🔄 Nuova versione disponibile!</span>
-    <button onclick="window.location.reload()" style="background:#4caf70;color:#0d1a0d;border:none;
+       padding:10px 16px;align-items:center;gap:12px;font-size:13px;color:#a8d8a8;">
+    <span id="update-banner-msg" data-i18n="update.message">🔄 New version available!</span>
+    <button onclick="window.location.reload()" id="update-banner-btn" data-i18n="update.btn"
+      style="background:#4caf70;color:#0d1a0d;border:none;
       border-radius:4px;padding:4px 12px;cursor:pointer;font-weight:700;font-size:12px;">
-      Aggiorna ora
+      Update now
     </button>
     <button onclick="this.parentElement.style.display='none'" style="background:none;border:none;
       color:#4caf70;cursor:pointer;font-size:16px;margin-left:auto;">✕</button>
@@ -148,10 +172,8 @@
   <script>
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('./sw.js').then(reg => {
-        // Trigger an update check on every page load
         reg.update();
       });
-      // Listen for the SW_UPDATED message sent by the new SW on activate
       navigator.serviceWorker.addEventListener('message', e => {
         if (e.data?.type === 'SW_UPDATED') {
           document.getElementById('update-banner').style.display = 'flex';

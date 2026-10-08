@@ -1,4 +1,5 @@
-import { SPECIAL_HEX_TYPES, RESOURCE_ICON, RESOURCE_LABEL, PERMIT_TYPES } from './config.js';
+import { SPECIAL_HEX_TYPES, RESOURCE_ICON, PERMIT_TYPES } from './config.js';
+import { t, resLabel, bonusLabel, achievLabel, achievDesc } from './i18n.js';
 
 // ── Achievement pool ──────────────────────────────────────────────────────────
 
@@ -97,25 +98,22 @@ export function generateBonusChoices(level) {
 function _scaledOption(base, level) {
   const lv = Math.max(1, level);
   if (base.type === 'grant') {
-    const amt = Math.round(base.baseAmt * (1 + (lv - 1) * 0.4));
+    const amt  = Math.round(base.baseAmt * (1 + (lv - 1) * 0.4));
+    const rlab = resLabel(base.resource);
     return {
       type:      'grant',
-      label:     `+${amt} ${RESOURCE_ICON[base.resource] ?? ''} ${RESOURCE_LABEL[base.resource] ?? base.resource}`,
-      desc:      `Ottieni subito ${amt} ${RESOURCE_LABEL[base.resource] ?? base.resource}`,
+      label:     `+${amt} ${RESOURCE_ICON[base.resource] ?? ''} ${rlab}`,
+      desc:      t('bonus.grant.desc', {amt, res: rlab}),
       applyData: { resource: base.resource, amount: amt },
     };
   }
-  const mult = +(base.baseMult + (lv - 1) * 0.12).toFixed(2);
-  const dur  = Math.round(base.baseDur  * (1 + (lv - 1) * 0.18));
+  const mult  = +(base.baseMult + (lv - 1) * 0.12).toFixed(2);
+  const dur   = Math.round(base.baseDur * (1 + (lv - 1) * 0.18));
   const emoji = base.type === 'speed_worker' ? '⚡' : base.type === 'speed_research' ? '🔬' : '📦';
   return {
     type:      base.type,
-    label:     `${emoji} ${base.label} ×${mult}`,
-    desc:      base.type === 'resource_mult'
-      ? `Ogni raccolta fornisce ×${mult} risorse per ${dur}s`
-      : base.type === 'speed_worker'
-        ? `I lavoratori si muovono ×${mult} per ${dur}s`
-        : `La ricerca avanza ×${mult} per ${dur}s`,
+    label:     `${emoji} ${bonusLabel(base.type)} ×${mult}`,
+    desc:      t(`bonus.${base.type}.desc`, {mult, dur}),
     applyData: { multiplier: mult, durationSec: dur },
   };
 }

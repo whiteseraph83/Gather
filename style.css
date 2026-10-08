@@ -112,6 +112,38 @@ html, body {
   background: linear-gradient(90deg, transparent, var(--gold-dim), transparent);
 }
 
+/* ── Language toggle ─────────────────────────────────────────────────────── */
+
+.lang-toggle {
+  display: flex;
+  justify-content: center;
+  gap: 6px;
+  padding: 6px 12px 10px;
+  border-bottom: 1px solid var(--border);
+}
+
+.lang-btn {
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.13);
+  border-radius: 12px;
+  color: rgba(255,255,255,0.45);
+  cursor: pointer;
+  font-size: 11px;
+  padding: 3px 11px;
+  transition: background 0.2s, color 0.2s, border-color 0.2s;
+}
+
+.lang-btn:hover {
+  background: rgba(255,255,255,0.10);
+  color: rgba(255,255,255,0.80);
+}
+
+.lang-btn.active {
+  background: rgba(200,160,40,0.15);
+  border-color: rgba(200,160,40,0.35);
+  color: var(--gold-light);
+}
+
 /* ── Panels ──────────────────────────────────────────────────────────────── */
 
 .panel {
@@ -1469,4 +1501,79 @@ button.action-btn.danger-action:hover:not(:disabled) {
 .levelup-card-desc {
   font-size: 11px;
   color: var(--text-dim);
+}
+
+/* ── Tutorial modal ───────────────────────────────────────────────────────── */
+
+.tutorial-modal-box {
+  max-width: 460px;
+  width: 92vw;
+}
+
+.tutorial-content {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-height: 60vh;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.tutorial-step {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 10px 12px;
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.07);
+  border-radius: 8px;
+}
+
+.tutorial-step-icon {
+  font-size: 22px;
+  line-height: 1;
+  flex-shrink: 0;
+  padding-top: 1px;
+}
+
+.tutorial-step-body {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.tutorial-step-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--gold-light);
+  font-family: var(--font-serif);
+}
+
+.tutorial-step-text {
+  font-size: 12px;
+  color: var(--text-dim);
+  line-height: 1.5;
+}
+
+.tutorial-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 18px 4px;
+  gap: 12px;
+}
+
+.tutorial-dont-show {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--text-dim);
+  cursor: pointer;
+  user-select: none;
+}
+
+.tutorial-dont-show input[type="checkbox"] {
+  accent-color: var(--gold-dim);
+  cursor: pointer;
 }
