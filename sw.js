@@ -2,7 +2,7 @@
 // Update VERSION to match GAME_VERSION in js/config.js on every release.
 // Changing this string invalidates the old cache and forces all clients to reload.
 
-const VERSION = '1.31';
+const VERSION = '1.32';
 const CACHE   = `hexdomain-${VERSION}`;
 
 const ASSETS = [
