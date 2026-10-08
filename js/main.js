@@ -223,7 +223,10 @@ function init() {
 
   setInterval(saveGame, AUTOSAVE_MS);
   updateUI();
-  requestAnimationFrame(() => { resizeCanvas(); requestAnimationFrame(loop); });
+  requestAnimationFrame(() => {
+    resizeCanvas();
+    requestAnimationFrame((t) => { _sendGameReady(); loop(t); });
+  });
 
   // Show tutorial on first visit (deferred by 800ms to let the UI settle)
   if (shouldShowTutorial()) setTimeout(openTutorial, 800);
@@ -308,6 +311,7 @@ let lastTime    = 0;
 let uiTickAccum = 0;
 
 function loop(timestamp) {
+  if (_isPaused) return;
   try {
     const dt = Math.min((timestamp - lastTime) / 1000, 0.1);
     lastTime  = timestamp;
@@ -418,10 +422,51 @@ function showToast(msg) {
   _toastTimer = setTimeout(() => el.classList.remove('show'), 2200);
 }
 
+// ── Playgama Bridge helpers ────────────────────────────────────────────────────
+
+let _isPaused = false;
+
+function _sendGameReady() {
+  try { window.bridge?.platform?.sendMessage('game_ready'); } catch (_) {}
+}
+
+function _initBridgeEvents() {
+  try {
+    const b = window.bridge;
+    if (!b) return;
+    // Pause / resume
+    b.platform.on(b.EVENT_NAME.PAUSE_STATE_CHANGED, isPaused => {
+      _isPaused = isPaused;
+      if (!isPaused) requestAnimationFrame(loop);
+    });
+    // Audio (game has no audio currently — stub for platform compliance)
+    b.platform.on(b.EVENT_NAME.AUDIO_STATE_CHANGED, _isEnabled => {
+      // no-op: game is silent
+    });
+  } catch (_) {}
+}
+
 // ── Boot ──────────────────────────────────────────────────────────────────────
 
-if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', init);
-} else {
+async function boot() {
+  try {
+    await window.bridge?.initialize();
+    // Apply platform language only if player has no stored preference
+    if (!localStorage.getItem('hexdomain_lang')) {
+      const pl = (window.bridge?.platform?.language ?? '').toLowerCase();
+      if (pl.startsWith('it')) setLang('it');
+    }
+    _initBridgeEvents();
+    // Check initial audio state (no-op: game is silent)
+    // bridge.platform.isAudioEnabled — noted for future audio addition
+  } catch (_) {
+    // Bridge unavailable — run game with local defaults
+  }
   init();
+}
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', boot);
+} else {
+  boot();
 }
