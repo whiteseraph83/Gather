@@ -27,6 +27,7 @@ const ASSETS = [
   './js/achievements.js',
   './js/i18n.js',
   './js/tutorial.js',
+  './playgama-bridge-config.json',
 ];
 
 // Install: cache all assets immediately
