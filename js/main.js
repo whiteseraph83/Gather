@@ -185,7 +185,7 @@ function init() {
   sidebarBackdrop.addEventListener('click', closeSidebar);
 
   // Language toggle
-  document.querySelectorAll('.lang-btn').forEach(btn => {
+  document.querySelectorAll('.lang-btn[data-lang]').forEach(btn => {
     if (btn.dataset.lang === getLang()) btn.classList.add('active');
     else btn.classList.remove('active');
     btn.addEventListener('click', () => {
