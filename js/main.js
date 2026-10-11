@@ -201,6 +201,8 @@ function init() {
     });
   });
 
+  document.getElementById('tutorial-btn')?.addEventListener('click', openTutorial);
+
   // Apply initial lang to DOM
   applyLangDOM();
   document.documentElement.lang = getLang();
@@ -451,11 +453,6 @@ function _initBridgeEvents() {
 async function boot() {
   try {
     await window.bridge?.initialize();
-    // Apply platform language only if player has no stored preference
-    if (!localStorage.getItem('hexdomain_lang')) {
-      const pl = (window.bridge?.platform?.language ?? '').toLowerCase();
-      if (pl.startsWith('it')) setLang('it');
-    }
     _initBridgeEvents();
     // Check initial audio state (no-op: game is silent)
     // bridge.platform.isAudioEnabled — noted for future audio addition

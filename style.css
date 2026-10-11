@@ -144,6 +144,12 @@ html, body {
   color: var(--gold-light);
 }
 
+.tutorial-open-btn {
+  margin-left: auto;
+  font-size: 13px;
+  padding: 3px 8px;
+}
+
 /* ── Panels ──────────────────────────────────────────────────────────────── */
 
 .panel {
